@@ -1,0 +1,12 @@
+{
+    "name": "@core/utils",
+    "version": "1.0.0",
+    "main": "index.ts",
+    "private": true,
+    "dependencies": {
+        "bcryptjs": "^2.4.3"
+    },
+    "devDependencies": {
+        "@types/bcryptjs": "^2.4.6"
+    }
+}

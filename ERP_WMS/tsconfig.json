@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    /* === Language & Output === */
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
+    /* === Decorators (Required for tsoa) === */
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    /* === Type Safety === */
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+
+    /* === Path Aliases (@ shortcuts) === */
+    "baseUrl": ".",
+    "paths": {
+      "@core/*": ["libs/core/*"],
+      "@modules/*": ["libs/modules/*"]
+    },
+
+    /* === Output === */
+    "outDir": "./dist",
+    "rootDir": ".",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+
+    /* === Other === */
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "exclude": ["node_modules", "dist", "tests"]
+}

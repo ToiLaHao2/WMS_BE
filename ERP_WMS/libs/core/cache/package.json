@@ -1,0 +1,10 @@
+{
+    "name": "@core/cache",
+    "version": "1.0.0",
+    "main": "src/index.ts",
+    "private": true,
+    "dependencies": {
+        "ioredis": "^5.9.2",
+        "lru-cache": "^11.2.6"
+    }
+}

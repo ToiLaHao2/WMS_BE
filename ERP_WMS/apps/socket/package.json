@@ -1,0 +1,20 @@
+{
+  "name": "socket",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/socket.ts",
+  "scripts": {
+    "dev": "tsx watch src/socket.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@core/cache": "*",
+    "@socket.io/redis-adapter": "^8.3.0",
+    "dotenv": "^17.2.4",
+    "socket.io": "^4.8.3"
+  }
+}

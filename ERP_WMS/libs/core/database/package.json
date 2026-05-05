@@ -1,0 +1,11 @@
+{
+    "name": "@core/database",
+    "version": "1.0.0",
+    "main": "index.ts",
+    "private": true,
+    "dependencies": {
+        "firebase": "^12.8.0",
+        "firebase-admin": "^13.6.1",
+        "mongodb": "^7.1.1"
+    }
+}

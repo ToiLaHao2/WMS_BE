@@ -1,0 +1,25 @@
+{
+    "name": "api-gateway",
+    "version": "1.0.0",
+    "main": "src/server.ts",
+    "scripts": {
+        "dev": "tsx watch src/server.ts",
+        "seed": "tsx src/scripts/seed.ts"
+    },
+    "dependencies": {
+        "@core/config": "1.0.0",
+        "@core/exceptions": "1.0.0",
+        "@core/http": "1.0.0",
+        "@core/shared": "1.0.0",
+        "@core/utils": "1.0.0",
+        "@types/swagger-ui-express": "^4.1.8",
+        "cors": "^2.8.6",
+        "dotenv": "^17.2.3",
+        "express": "^5.2.1",
+        "express-rate-limit": "^8.2.1",
+        "helmet": "^8.1.0",
+        "swagger-ui-express": "^5.0.1",
+        "tsoa": "^7.0.0-alpha.0",
+        "zod": "^4.3.6"
+    }
+}

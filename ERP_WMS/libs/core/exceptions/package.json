@@ -1,0 +1,16 @@
+{
+    "name": "@core/exceptions",
+    "version": "1.0.0",
+    "description": "Global exception handler and custom app errors for CMA Backend",
+    "main": "index.ts",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [
+        "error",
+        "errorhandler"
+    ],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {}
+}

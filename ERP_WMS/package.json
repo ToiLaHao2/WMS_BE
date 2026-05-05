@@ -1,0 +1,48 @@
+{
+  "name": "wms-backend-root",
+  "version": "1.0.0",
+  "description": "Root of WMS Backend Monorepo",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install",
+    "tsoa:spec": "tsoa spec",
+    "tsoa:routes": "tsoa routes",
+    "tsoa:gen": "tsoa spec && tsoa routes",
+    "dev:gateway": "npm run dev -w apps/api-gateway",
+    "dev:worker": "npm run dev -w apps/worker",
+    "dev:socket": "npm run dev -w apps/socket",
+    "dev:combo": "tsx watch apps/api-gateway/src/combo.ts",
+    "dev:multiport": "npm run tsoa:gen && concurrently \"npm run dev:gateway\" \"npm run dev:worker\" \"npm run dev:socket\" --names \"GATEWAY,WORKER,SOCKET\" --prefix-colors \"blue,yellow,magenta\"",
+    "dev:one_port": "npm run tsoa:gen && concurrently \"npm run dev:combo\" \"npm run dev:worker\" --names \"COMBO,WORKER\" --prefix-colors \"cyan,yellow\"",
+    "dev": "npm run dev:multiport"
+  },
+  "workspaces": [
+    "apps/*",
+    "libs/core/*",
+    "libs/modules/*"
+  ],
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/express": "^5.0.6",
+    "@types/lru-cache": "^7.10.9",
+    "@types/node": "^25.3.3",
+    "@types/pg": "^8.20.0",
+    "@types/uuid": "^10.0.0",
+    "concurrently": "^8.0.0",
+    "nodemon": "^3.0.0",
+    "socket.io-client": "^4.8.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1030.0",
+    "@socket.io/redis-emitter": "^5.1.0",
+    "mongodb": "^7.1.1",
+    "pg": "^8.20.0",
+    "reflect-metadata": "^0.2.2",
+    "tsoa": "^7.0.0-alpha.0",
+    "uuid": "^13.0.0"
+  }
+}

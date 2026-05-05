@@ -1,0 +1,10 @@
+{
+    "name": "@core/shared",
+    "version": "1.0.0",
+    "main": "index.ts",
+    "private": true,
+    "dependencies": {
+        "jsonwebtoken": "^9.0.3",
+        "zod": "^4.3.6"
+    }
+}

@@ -1,0 +1,116 @@
+{
+	"openapi": "3.0.0",
+	"components": {
+		"examples": {},
+		"headers": {},
+		"parameters": {},
+		"requestBodies": {},
+		"responses": {},
+		"schemas": {
+			"HealthStatus": {
+				"description": "Response shape for the health check endpoint",
+				"properties": {
+					"status": {
+						"type": "string",
+						"enum": [
+							"healthy",
+							"degraded"
+						]
+					},
+					"uptime": {
+						"type": "number",
+						"format": "double"
+					},
+					"timestamp": {
+						"type": "string"
+					},
+					"services": {
+						"properties": {
+							"cloudinary": {
+								"type": "string",
+								"enum": [
+									"configured",
+									"not_configured"
+								]
+							},
+							"database": {
+								"type": "string",
+								"enum": [
+									"connected",
+									"disconnected"
+								]
+							},
+							"redis": {
+								"type": "string",
+								"enum": [
+									"connected",
+									"disconnected"
+								]
+							}
+						},
+						"required": [
+							"cloudinary",
+							"database",
+							"redis"
+						],
+						"type": "object"
+					}
+				},
+				"required": [
+					"status",
+					"uptime",
+					"timestamp",
+					"services"
+				],
+				"type": "object",
+				"additionalProperties": false
+			}
+		},
+		"securitySchemes": {
+			"jwt": {
+				"type": "apiKey",
+				"name": "Authorization",
+				"in": "header"
+			}
+		}
+	},
+	"info": {
+		"title": "wms-backend-root",
+		"version": "1.0.0",
+		"description": "Root of WMS Backend Monorepo",
+		"license": {
+			"name": "ISC"
+		},
+		"contact": {}
+	},
+	"paths": {
+		"/health": {
+			"get": {
+				"operationId": "GetHealth",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/HealthStatus"
+								}
+							}
+						}
+					}
+				},
+				"description": "System health check — verifies connectivity of all core dependencies.\r\nUsed by deployment platforms (Render, Railway, AWS ECS) to determine app status.",
+				"tags": [
+					"System"
+				],
+				"security": [],
+				"parameters": []
+			}
+		}
+	},
+	"servers": [
+		{
+			"url": "https://localhost:3000/api"
+		}
+	]
+}

@@ -1,0 +1,43 @@
+{
+    "entryFile": "apps/api-gateway/src/server.ts",
+    "noImplicitAdditionalProperties": "throw-on-extras",
+    "controllerPathGlobs": [
+        "libs/modules/*/src/*.controller.ts",
+        "libs/core/*/src/*.controller.ts"
+    ],
+    "spec": {
+        "outputDirectory": "apps/api-gateway/src/generated",
+        "specVersion": 3,
+        "info": {
+            "title": "CMA Backend API",
+            "version": "1.0.0",
+            "description": "Class Management Application — Auto-generated API Documentation"
+        },
+        "host": "localhost:3000",
+        "basePath": "/api",
+        "securityDefinitions": {
+            "jwt": {
+                "type": "apiKey",
+                "name": "Authorization",
+                "in": "header"
+            }
+        }
+    },
+    "routes": {
+        "routesDir": "apps/api-gateway/src/generated",
+        "middleware": "express",
+        "iocModule": "apps/api-gateway/src/ioc",
+        "authenticationModule": "libs/core/http/src/authentication.ts"
+    },
+    "compilerOptions": {
+        "baseUrl": ".",
+        "paths": {
+            "@core/*": [
+                "libs/core/*"
+            ],
+            "@modules/*": [
+                "libs/modules/*"
+            ]
+        }
+    }
+}
