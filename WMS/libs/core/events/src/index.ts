@@ -36,3 +36,7 @@ export class SocketIoRedisPublisher implements IEventPublisher {
         this.emitter.emit(event, data);
     }
 }
+
+// Event Broker (Inter-service messaging: Kafka / Console dummy)
+export type { IEventBroker } from './event-broker';
+export { ConsoleEventBroker } from './event-broker';

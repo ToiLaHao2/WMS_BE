@@ -1,37 +1,146 @@
 import { Pool } from 'pg';
 
-// Import tất cả migration theo thứ tự dependency đúng
-import { USERS_MIGRATION } from '../../../modules/users/src/user.migration';
-import { CATEGORIES_MIGRATION, CATEGORIES_SEED } from '../../../modules/categories/src/category.migration';
-import { PROFILES_MIGRATION } from '../../../modules/profiles/src/profiles.migration';
-import { CLASSES_MIGRATION } from '../../../modules/classes/src/classes.migration';
-import { ATTACHMENTS_MIGRATION } from '../../../modules/attachments/src/attachments.migration';
-import { ASSIGNMENTS_MIGRATION } from '../../../modules/assignments/src/assignments.migration';
-import { SCHEDULES_MIGRATION } from '../../../modules/schedules/src/schedules.migration';
-import { NOTIFICATIONS_MIGRATION } from '../../../modules/notifications/src/notifications.migration';
+// ============================================================
+// WMS Simulation — Database Migrations
+// Thứ tự tuần tự tránh FK violation:
+//   1. warehouse        — bảng gốc, không FK nào
+//   2. warehouse_slot   — FK → warehouse
+//   3. product          — bảng gốc, không FK nào
+//   4. inventory_item   — FK → product, warehouse, warehouse_slot
+//   5. import_order     — FK → warehouse
+//   6. import_order_item — FK → import_order, product
+//   7. export_order     — FK → warehouse
+//   8. export_order_item — FK → export_order, inventory_item
+//   9. system_event     — bảng log, không FK nào
+// ============================================================
+
+const WAREHOUSE_MIGRATION = `
+CREATE TABLE IF NOT EXISTS "warehouse" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(50) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    width INTEGER NOT NULL DEFAULT 10,
+    height INTEGER NOT NULL DEFAULT 10,
+    layout_type VARCHAR(50) NOT NULL DEFAULT 'GRID',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+`;
+
+const WAREHOUSE_SLOT_MIGRATION = `
+CREATE TABLE IF NOT EXISTS "warehouse_slot" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    warehouse_id UUID NOT NULL REFERENCES "warehouse"(id) ON DELETE CASCADE,
+    slot_code VARCHAR(50) NOT NULL,
+    x INTEGER NOT NULL DEFAULT 0,
+    y INTEGER NOT NULL DEFAULT 0,
+    width INTEGER NOT NULL DEFAULT 1,
+    height INTEGER NOT NULL DEFAULT 1,
+    slot_type VARCHAR(20) NOT NULL DEFAULT 'STORAGE',
+    occupied_percent INTEGER NOT NULL DEFAULT 0,
+    status VARCHAR(20) NOT NULL DEFAULT 'AVAILABLE',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (warehouse_id, slot_code)
+);
+`;
+
+const PRODUCT_MIGRATION = `
+CREATE TABLE IF NOT EXISTS "product" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(50) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    width NUMERIC(10,2) NOT NULL DEFAULT 0,
+    height NUMERIC(10,2) NOT NULL DEFAULT 0,
+    weight NUMERIC(10,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+`;
+
+const INVENTORY_ITEM_MIGRATION = `
+CREATE TABLE IF NOT EXISTS "inventory_item" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(50) UNIQUE NOT NULL,
+    product_id UUID NOT NULL REFERENCES "product"(id) ON DELETE RESTRICT,
+    warehouse_id UUID NOT NULL REFERENCES "warehouse"(id) ON DELETE RESTRICT,
+    warehouse_slot_id UUID REFERENCES "warehouse_slot"(id) ON DELETE SET NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    imported_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+`;
+
+const IMPORT_ORDER_MIGRATION = `
+CREATE TABLE IF NOT EXISTS "import_order" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(50) UNIQUE NOT NULL,
+    warehouse_id UUID NOT NULL REFERENCES "warehouse"(id) ON DELETE RESTRICT,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+`;
+
+const IMPORT_ORDER_ITEM_MIGRATION = `
+CREATE TABLE IF NOT EXISTS "import_order_item" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    import_order_id UUID NOT NULL REFERENCES "import_order"(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES "product"(id) ON DELETE RESTRICT,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+`;
+
+const EXPORT_ORDER_MIGRATION = `
+CREATE TABLE IF NOT EXISTS "export_order" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(50) UNIQUE NOT NULL,
+    warehouse_id UUID NOT NULL REFERENCES "warehouse"(id) ON DELETE RESTRICT,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+`;
+
+const EXPORT_ORDER_ITEM_MIGRATION = `
+CREATE TABLE IF NOT EXISTS "export_order_item" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    export_order_id UUID NOT NULL REFERENCES "export_order"(id) ON DELETE CASCADE,
+    inventory_item_id UUID NOT NULL REFERENCES "inventory_item"(id) ON DELETE RESTRICT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+`;
+
+const SYSTEM_EVENT_MIGRATION = `
+CREATE TABLE IF NOT EXISTS "system_event" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_type VARCHAR(50) NOT NULL,
+    payload JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_system_event_type ON "system_event"(event_type);
+CREATE INDEX IF NOT EXISTS idx_system_event_created ON "system_event"(created_at DESC);
+`;
 
 /**
- * Ordered Migration Steps
- * 
- * Thứ tự tuần tự tránh FK violation:
- *   1. users           — bảng gốc, không FK nào
- *   2. categories      — bảng lookup, không FK nào
- *   3. profiles        — FK → users, categories
- *   4. classes         — FK → teacher_profiles, categories
- *   5. attachments     — FK → users (uploaded_by)
- *   6. assignments     — FK → classes, teacher_profiles, student_profiles, categories
- *   7. schedules       — FK → classes, student_profiles, categories
- *   8. notifications   — FK → users
+ * Ordered Migration Steps — WMS Simulation
  */
-const MIGRATION_STEPS: Array<{ name: string; sql: string; seedSql?: string }> = [
-    { name: 'users',         sql: USERS_MIGRATION },
-    { name: 'categories',    sql: CATEGORIES_MIGRATION, seedSql: CATEGORIES_SEED },
-    { name: 'profiles',      sql: PROFILES_MIGRATION },
-    { name: 'classes',       sql: CLASSES_MIGRATION },
-    { name: 'attachments',   sql: ATTACHMENTS_MIGRATION },
-    { name: 'assignments',   sql: ASSIGNMENTS_MIGRATION },
-    { name: 'schedules',     sql: SCHEDULES_MIGRATION },
-    { name: 'notifications', sql: NOTIFICATIONS_MIGRATION },
+const MIGRATION_STEPS: Array<{ name: string; sql: string }> = [
+    { name: 'warehouse',          sql: WAREHOUSE_MIGRATION },
+    { name: 'warehouse_slot',     sql: WAREHOUSE_SLOT_MIGRATION },
+    { name: 'product',            sql: PRODUCT_MIGRATION },
+    { name: 'inventory_item',     sql: INVENTORY_ITEM_MIGRATION },
+    { name: 'import_order',       sql: IMPORT_ORDER_MIGRATION },
+    { name: 'import_order_item',  sql: IMPORT_ORDER_ITEM_MIGRATION },
+    { name: 'export_order',       sql: EXPORT_ORDER_MIGRATION },
+    { name: 'export_order_item',  sql: EXPORT_ORDER_ITEM_MIGRATION },
+    { name: 'system_event',       sql: SYSTEM_EVENT_MIGRATION },
 ];
 
 /**
@@ -47,22 +156,16 @@ export async function runMigrations(pool: Pool): Promise<void> {
     for (const step of MIGRATION_STEPS) {
         try {
             await pool.query(step.sql);
-            console.log(`  ✅ [${step.name.padEnd(14)}] Tables ready.`);
-
-            // Chạy seed nếu có (chỉ dùng INSERT ... ON CONFLICT DO NOTHING)
-            if (step.seedSql) {
-                await pool.query(step.seedSql);
-                console.log(`  🌱 [${step.name.padEnd(14)}] Default data seeded.`);
-            }
+            console.log(`  ✅ [${step.name.padEnd(20)}] Tables ready.`);
         } catch (err) {
             const error = err as Error;
-            // Lỗi critical (users/categories) thì throw để dừng server
-            if (step.name === 'users' || step.name === 'categories') {
+            // Lỗi ở bảng gốc (warehouse, product) thì throw để dừng server
+            if (step.name === 'warehouse' || step.name === 'product') {
                 console.error(`  ❌ [${step.name}] CRITICAL migration failed: ${error.message}`);
                 throw new Error(`Critical migration failed at step [${step.name}]: ${error.message}`);
             }
             // Lỗi ở bảng phụ: log cảnh báo và tiếp tục để server vẫn khởi động
-            console.warn(`  ⚠️  [${step.name.padEnd(14)}] Non-critical migration warning: ${error.message}`);
+            console.warn(`  ⚠️  [${step.name.padEnd(20)}] Non-critical migration warning: ${error.message}`);
         }
     }
 

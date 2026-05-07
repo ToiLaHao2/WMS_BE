@@ -43,6 +43,11 @@ const envSchema = z.object({
     MONGO_URI: z.string().optional(),
     MONGO_DATABASE: z.string().default('cma_logs'),
 
+    // Kafka (optional — for inter-service communication: WMS ↔ MES ↔ AGV)
+    KAFKA_BROKERS: z.string().optional(),        // comma-separated: "broker1:9092,broker2:9092"
+    KAFKA_CLIENT_ID: z.string().default('wms-service'),
+    KAFKA_GROUP_ID: z.string().default('wms-consumer-group'),
+
     RATE_LIMIT_WINDOW_MS: z.string().default('900000').transform(Number),    // 15 minutes
     RATE_LIMIT_MAX: z.string().default('100').transform(Number),
     RATE_LIMIT_AUTH_MAX: z.string().default('10').transform(Number),
@@ -133,4 +138,10 @@ export const rateLimitConfig = {
     windowMs: envVars.RATE_LIMIT_WINDOW_MS,
     max: envVars.RATE_LIMIT_MAX,
     authMax: envVars.RATE_LIMIT_AUTH_MAX,
+} as const;
+
+export const kafkaConfig = {
+    brokers: envVars.KAFKA_BROKERS?.split(',').map(b => b.trim()) ?? [],
+    clientId: envVars.KAFKA_CLIENT_ID,
+    groupId: envVars.KAFKA_GROUP_ID,
 } as const;

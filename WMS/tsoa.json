@@ -9,9 +9,9 @@
         "outputDirectory": "apps/api-gateway/src/generated",
         "specVersion": 3,
         "info": {
-            "title": "CMA Backend API",
+            "title": "WMS Simulation API",
             "version": "1.0.0",
-            "description": "Class Management Application — Auto-generated API Documentation"
+            "description": "Warehouse Management Simulation — Auto-generated API Documentation"
         },
         "host": "localhost:3000",
         "basePath": "/api",

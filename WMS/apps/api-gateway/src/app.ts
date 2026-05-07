@@ -52,7 +52,7 @@ runSystemCheck();
 // === GATEWAY HEALTH CHECK ===
 app.get('/', (_req: Request, res: Response) => {
     res.json({
-        service: 'CMA Backend Gateway',
+        service: 'WMS Simulation Gateway',
         status: 'active',
         timestamp: new Date(),
         docs: `http://localhost:${PORT}/docs`,

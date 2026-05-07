@@ -1,4 +1,4 @@
-import { postgresAdapter, seedSuperAdminPostgres } from '@core/database';
+import { postgresAdapter } from '@core/database';
 import { cloudinaryAdapter } from '@core/storage';
 import { cacheManager } from '@core/cache';
 import { Pool } from 'pg';
@@ -17,9 +17,6 @@ export const runSystemCheck = async (): Promise<void> => {
             // Quick connectivity test
             const result = await pool.query('SELECT NOW()');
             console.log(`✅ PostgreSQL connected. Server time: ${result.rows[0].now}`);
-
-            // 1.1 Seed default Super Admin (optional, env-driven)
-            await seedSuperAdminPostgres(pool);
         }
 
         // 2. Khoi tao Storage (Cloudinary)
@@ -35,3 +32,4 @@ export const runSystemCheck = async (): Promise<void> => {
 
     console.log('----------------------\n');
 };
+
