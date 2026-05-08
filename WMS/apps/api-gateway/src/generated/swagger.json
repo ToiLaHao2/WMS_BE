@@ -33,6 +33,17 @@
 					"layout_type": {
 						"type": "string"
 					},
+					"layout_data": {
+						"items": {
+							"items": {
+								"type": "number",
+								"format": "double"
+							},
+							"type": "array"
+						},
+						"type": "array",
+						"nullable": true
+					},
 					"created_at": {
 						"type": "string",
 						"format": "date-time"
@@ -50,6 +61,7 @@
 					"width",
 					"height",
 					"layout_type",
+					"layout_data",
 					"created_at",
 					"updated_at"
 				],
@@ -169,6 +181,7 @@
 					"status": {
 						"$ref": "#/components/schemas/SlotStatus"
 					},
+					"metadata": {},
 					"created_at": {
 						"type": "string",
 						"format": "date-time"
@@ -189,6 +202,7 @@
 					"slot_type",
 					"occupied_percent",
 					"status",
+					"metadata",
 					"created_at",
 					"updated_at"
 				],
@@ -221,7 +235,8 @@
 					},
 					"slot_type": {
 						"$ref": "#/components/schemas/SlotType"
-					}
+					},
+					"metadata": {}
 				},
 				"required": [
 					"warehouse_id",
@@ -246,7 +261,8 @@
 					},
 					"status": {
 						"$ref": "#/components/schemas/SlotStatus"
-					}
+					},
+					"metadata": {}
 				},
 				"type": "object",
 				"additionalProperties": false
@@ -491,7 +507,7 @@
 				}
 			}
 		},
-		"/master-data/warehouses/{id}": {
+		"/master-data/warehouses/{idOrCode}": {
 			"get": {
 				"operationId": "GetWarehouseById",
 				"responses": {
@@ -513,14 +529,16 @@
 				"parameters": [
 					{
 						"in": "path",
-						"name": "id",
+						"name": "idOrCode",
 						"required": true,
 						"schema": {
 							"type": "string"
 						}
 					}
 				]
-			},
+			}
+		},
+		"/master-data/warehouses/{id}": {
 			"put": {
 				"operationId": "UpdateWarehouse",
 				"responses": {
@@ -598,7 +616,7 @@
 				]
 			}
 		},
-		"/master-data/warehouses/{warehouseId}/slots": {
+		"/master-data/warehouses/{idOrCode}/slots": {
 			"get": {
 				"operationId": "GetSlotsByWarehouseId",
 				"responses": {
@@ -623,7 +641,7 @@
 				"parameters": [
 					{
 						"in": "path",
-						"name": "warehouseId",
+						"name": "idOrCode",
 						"required": true,
 						"schema": {
 							"type": "string"

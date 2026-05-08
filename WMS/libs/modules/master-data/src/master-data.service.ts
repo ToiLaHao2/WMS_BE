@@ -8,6 +8,11 @@ import type {
     CreateProductDTO, UpdateProductDTO,
 } from './master-data.model';
 
+import { transactionManager } from '@core/database';
+import { cacheManager } from '@core/cache';
+import { SlotType } from './master-data.model';
+import { NotFoundError } from '@core/exceptions';
+
 /**
  * MasterDataService — Business Logic cho dữ liệu gốc (Warehouse, Slot, Product).
  * Dependencies được inject qua Awilix (constructor injection).
@@ -39,12 +44,134 @@ export class MasterDataService {
         return this.warehouseRepo.getAllWarehouses();
     }
 
-    async getWarehouseById(id: string): Promise<IWarehouse> {
-        return this.warehouseRepo.findByIdOrThrow(id) as Promise<IWarehouse>;
+    async getWarehouseByIdOrCode(idOrCode: string): Promise<IWarehouse> {
+        // Check if idOrCode is a valid UUID format
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idOrCode);
+        
+        if (isUuid) {
+            return this.warehouseRepo.findByIdOrThrow(idOrCode) as unknown as Promise<IWarehouse>;
+        }
+        
+        const warehouse = await this.warehouseRepo.findByCode(idOrCode);
+        if (!warehouse) {
+            throw new NotFoundError(`Warehouse with code '${idOrCode}' not found`);
+        }
+        return warehouse;
+    }
+
+    async checkWarehouseCodeExists(code: string): Promise<boolean> {
+        // 1. Check Cache first (O(1))
+        const cached = await cacheManager.get(`wms:code:${code}`);
+        if (cached === 1) return true;
+
+        // 2. Check Database (Fallback)
+        const warehouse = await this.warehouseRepo.findByCode(code);
+        if (warehouse) {
+            // Fill cache for next time
+            await cacheManager.set(`wms:code:${code}`, 1, 3600);
+            return true;
+        }
+
+        return false;
     }
 
     async createWarehouse(data: CreateWarehouseDTO): Promise<IWarehouse> {
-        return this.warehouseRepo.createWarehouse(data);
+        return transactionManager.runInTransaction(async (client) => {
+            const cols = data.width;
+            const rows = data.height;
+
+            // ── 1. Generate Grid Matrix ──────────────────────────
+            // Grid values: 0=AISLE, 1=STORAGE, 2=BLOCKED(wall), 3=CHARGING
+            const GRID_AISLE = 0;
+            const GRID_STORAGE = 1;
+            const GRID_BLOCKED = 2;
+            const GRID_CHARGING = 3;
+
+            const grid: number[][] = Array.from({ length: rows }, () => Array(cols).fill(GRID_AISLE));
+
+            // Step 1: Outer walls
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) {
+                        grid[r][c] = GRID_BLOCKED;
+                    }
+                }
+            }
+
+            // Step 2: Perimeter aisles (ring inside walls) — already AISLE by default
+
+            // Step 3: Inner core — rack blocks (2-wide, 4-tall, separated by 1-cell aisles)
+            for (let r = 2; r < rows - 2; r++) {
+                for (let c = 2; c < cols - 2; c++) {
+                    const cr = r - 2;
+                    const cc = c - 2;
+                    const isRackCol = cc % 3 < 2;
+                    const isRackRow = cr % 5 < 4;
+                    if (isRackCol && isRackRow) {
+                        grid[r][c] = GRID_STORAGE;
+                    }
+                }
+            }
+
+            // Step 4: Adaptive Charging Zone
+            // Calculate number of charging stations based on warehouse size
+            const innerWidth = cols - 4;
+            const chargingCount = Math.max(4, Math.min(innerWidth, Math.ceil((cols * rows) / 200)));
+            const chargingRow = rows - 3;
+            if (chargingRow >= 2) {
+                for (let i = 0; i < chargingCount && (2 + i) < cols - 2; i++) {
+                    grid[chargingRow][2 + i] = GRID_CHARGING;
+                }
+            }
+
+            // ── 2. Create Warehouse with layout_data ────────────
+            const warehouseResult = await this.warehouseRepo.rawQueryWithClient<IWarehouse>(client,
+                `INSERT INTO "warehouse" (code, name, description, width, height, layout_type, layout_data)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)
+                 RETURNING *`,
+                [data.code, data.name, data.description || null, cols, rows, data.layout_type, JSON.stringify(grid)]
+            );
+            const warehouse = warehouseResult[0];
+            const wId = warehouse.id;
+
+            // ── 3. Extract ONLY functional slots (STORAGE + CHARGING) ──
+            const functionalSlots: CreateWarehouseSlotDTO[] = [];
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const cellValue = grid[r][c];
+                    if (cellValue === GRID_STORAGE || cellValue === GRID_CHARGING) {
+                        const slotType = cellValue === GRID_STORAGE ? SlotType.STORAGE : SlotType.CHARGING;
+                        functionalSlots.push({
+                            warehouse_id: wId,
+                            slot_code: `R${r}-C${c}`,
+                            x: c,
+                            y: r,
+                            width: 1,
+                            height: 1,
+                            slot_type: slotType,
+                        });
+                    }
+                }
+            }
+
+            // ── 4. Batch Insert (1000 slots per batch) ───────────
+            const BATCH_SIZE = 1000;
+            for (let i = 0; i < functionalSlots.length; i += BATCH_SIZE) {
+                const batch = functionalSlots.slice(i, i + BATCH_SIZE);
+                await this.warehouseSlotRepo.bulkCreateSlotsWithClient(client, batch);
+            }
+
+            // ── 5. Cache to Redis ────────────────────────────────
+            if (cacheManager) {
+                await cacheManager.set(`warehouse:${wId}:layout`, grid, 86400);
+                // Index the code for quick existence check (Facebook-style)
+                await cacheManager.set(`wms:code:${warehouse.code}`, 1, 86400);
+            }
+
+            console.log(`✅ Warehouse "${data.code}" created: ${cols}x${rows} grid, ${functionalSlots.length} functional slots saved (${cols * rows - functionalSlots.length} static cells in layout_data)`);
+
+            return warehouse;
+        });
     }
 
     async updateWarehouse(id: string, data: UpdateWarehouseDTO): Promise<IWarehouse> {
@@ -59,12 +186,14 @@ export class MasterDataService {
     // Warehouse Slot
     // ============================================================
 
-    async getSlotsByWarehouseId(warehouseId: string): Promise<IWarehouseSlot[]> {
-        return this.warehouseSlotRepo.findByWarehouseId(warehouseId);
+    async getSlotsByWarehouseId(warehouseIdOrCode: string): Promise<IWarehouseSlot[]> {
+        // Resolve warehouse first to get the correct UUID
+        const warehouse = await this.getWarehouseByIdOrCode(warehouseIdOrCode);
+        return this.warehouseSlotRepo.findByWarehouseId(warehouse.id);
     }
 
     async getSlotById(id: string): Promise<IWarehouseSlot> {
-        return this.warehouseSlotRepo.findByIdOrThrow(id) as Promise<IWarehouseSlot>;
+        return this.warehouseSlotRepo.findByIdOrThrow(id) as unknown as Promise<IWarehouseSlot>;
     }
 
     async createSlot(data: CreateWarehouseSlotDTO): Promise<IWarehouseSlot> {
@@ -94,7 +223,7 @@ export class MasterDataService {
     }
 
     async getProductById(id: string): Promise<IProduct> {
-        return this.productRepo.findByIdOrThrow(id) as Promise<IProduct>;
+        return this.productRepo.findByIdOrThrow(id) as unknown as Promise<IProduct>;
     }
 
     async createProduct(data: CreateProductDTO): Promise<IProduct> {

@@ -4,7 +4,7 @@ import { container } from '@core/container';
 import * as jwt from 'jsonwebtoken';
 import { securityConfig } from '@core/config';
 
-const PORT = 3002;
+const PORT = 3001;
 
 console.log('\n--- 🔌 SOCKET SERVICE STARTING ---');
 
@@ -13,13 +13,13 @@ export function startSocketServer(adapter: ReturnType<typeof createAdapter> | nu
         cors: { origin: '*', methods: ['GET', 'POST'] },
         ...(adapter ? { adapter } : {})
     };
-    
+
     const io = httpServer ? new Server(httpServer, ioOptions) : new Server(PORT, ioOptions);
 
     // Authentication Middleware
     io.use((socket: Socket, next) => {
         const token = socket.handshake.auth.token || socket.handshake.headers['authorization']?.replace('Bearer ', '');
-        
+
         if (!token) {
             console.log(`🔌 [Auth Failed] Missing token for socket: ${socket.id}`);
             return next(new Error('Authentication Error: Token missing'));

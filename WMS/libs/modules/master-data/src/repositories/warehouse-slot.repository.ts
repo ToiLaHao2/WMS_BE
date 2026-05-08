@@ -8,7 +8,7 @@ export class WarehouseSlotRepository extends BasePostgresRepository {
     }
 
     async findByWarehouseId(warehouseId: string): Promise<IWarehouseSlot[]> {
-        return this.findWhere({ warehouse_id: warehouseId }) as Promise<IWarehouseSlot[]>;
+        return this.findWhere({ warehouse_id: warehouseId }) as unknown as Promise<IWarehouseSlot[]>;
     }
 
     async findBySlotCode(warehouseId: string, slotCode: string): Promise<IWarehouseSlot | null> {
@@ -20,11 +20,11 @@ export class WarehouseSlotRepository extends BasePostgresRepository {
     }
 
     async createSlot(data: CreateWarehouseSlotDTO): Promise<IWarehouseSlot> {
-        return this.create(data) as Promise<IWarehouseSlot>;
+        return this.create(data as any) as unknown as Promise<IWarehouseSlot>;
     }
 
     async updateSlot(id: string, data: UpdateWarehouseSlotDTO): Promise<IWarehouseSlot> {
-        return this.update(id, data) as Promise<IWarehouseSlot>;
+        return this.update(id, data as any) as unknown as Promise<IWarehouseSlot>;
     }
 
     async getAvailableStorageSlots(warehouseId: string): Promise<IWarehouseSlot[]> {
@@ -37,5 +37,35 @@ export class WarehouseSlotRepository extends BasePostgresRepository {
              ORDER BY x, y`,
             [warehouseId]
         );
+    }
+
+    async bulkCreateSlotsWithClient(client: any, slots: CreateWarehouseSlotDTO[]): Promise<void> {
+        if (slots.length === 0) return;
+
+        const values: any[] = [];
+        const placeholders: string[] = [];
+
+        slots.forEach((slot, index) => {
+            const offset = index * 8;
+            placeholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8})`);
+            values.push(
+                slot.warehouse_id,
+                slot.slot_code,
+                slot.x,
+                slot.y,
+                slot.width,
+                slot.height,
+                slot.slot_type,
+                JSON.stringify(slot.metadata || {})
+            );
+        });
+
+        const query = `
+            INSERT INTO "warehouse_slot" 
+            (warehouse_id, slot_code, x, y, width, height, slot_type, metadata) 
+            VALUES ${placeholders.join(', ')}
+        `;
+
+        await this.rawQueryWithClient(client, query, values);
     }
 }

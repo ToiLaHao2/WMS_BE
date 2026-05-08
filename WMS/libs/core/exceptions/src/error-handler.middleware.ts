@@ -18,9 +18,9 @@ const sendErrorDev = (err: ErrorWithExtras, res: Response): void => {
     // Log lỗi ra console để dev vẫn thấy chi tiết khi debug backend
     console.error('💥 [DEV ERROR]:', err);
     
-    // Gửi response sạch sẽ về frontend (không lộ file path / stack trace)
+    // CHỈ gửi status và message về frontend (tuyệt đối không gửi stack, path, v.v.)
     res.status(err.statusCode || 500).json({
-        status: err.status,
+        status: err.status || 'error',
         message: err.message,
     });
 };

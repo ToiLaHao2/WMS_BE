@@ -29,6 +29,7 @@ const models: TsoaRoute.Models = {
             "width": {"dataType":"double","required":true},
             "height": {"dataType":"double","required":true},
             "layout_type": {"dataType":"string","required":true},
+            "layout_data": {"dataType":"union","subSchemas":[{"dataType":"array","array":{"dataType":"array","array":{"dataType":"double"}}},{"dataType":"enum","enums":[null]}],"required":true},
             "created_at": {"dataType":"datetime","required":true},
             "updated_at": {"dataType":"datetime","required":true},
         },
@@ -83,6 +84,7 @@ const models: TsoaRoute.Models = {
             "slot_type": {"ref":"SlotType","required":true},
             "occupied_percent": {"dataType":"double","required":true},
             "status": {"ref":"SlotStatus","required":true},
+            "metadata": {"dataType":"any","required":true},
             "created_at": {"dataType":"datetime","required":true},
             "updated_at": {"dataType":"datetime","required":true},
         },
@@ -99,6 +101,7 @@ const models: TsoaRoute.Models = {
             "width": {"dataType":"double","required":true},
             "height": {"dataType":"double","required":true},
             "slot_type": {"ref":"SlotType","required":true},
+            "metadata": {"dataType":"any"},
         },
         "additionalProperties": false,
     },
@@ -109,6 +112,7 @@ const models: TsoaRoute.Models = {
             "slot_type": {"ref":"SlotType"},
             "occupied_percent": {"dataType":"double"},
             "status": {"ref":"SlotStatus"},
+            "metadata": {"dataType":"any"},
         },
         "additionalProperties": false,
     },
@@ -217,9 +221,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsMasterDataController_getWarehouseById: Record<string, TsoaRoute.ParameterSchema> = {
-                id: {"in":"path","name":"id","required":true,"dataType":"string"},
+                idOrCode: {"in":"path","name":"idOrCode","required":true,"dataType":"string"},
         };
-        app.get('/master-data/warehouses/:id',
+        app.get('/master-data/warehouses/:idOrCode',
             ...(fetchMiddlewares<RequestHandler>(MasterDataController)),
             ...(fetchMiddlewares<RequestHandler>(MasterDataController.prototype.getWarehouseById)),
 
@@ -358,9 +362,9 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsMasterDataController_getSlotsByWarehouseId: Record<string, TsoaRoute.ParameterSchema> = {
-                warehouseId: {"in":"path","name":"warehouseId","required":true,"dataType":"string"},
+                idOrCode: {"in":"path","name":"idOrCode","required":true,"dataType":"string"},
         };
-        app.get('/master-data/warehouses/:warehouseId/slots',
+        app.get('/master-data/warehouses/:idOrCode/slots',
             ...(fetchMiddlewares<RequestHandler>(MasterDataController)),
             ...(fetchMiddlewares<RequestHandler>(MasterDataController.prototype.getSlotsByWarehouseId)),
 

@@ -21,6 +21,13 @@ export enum SlotStatus {
     MAINTENANCE = 'MAINTENANCE',
 }
 
+export enum AGVStatus {
+    IDLE = 'IDLE',
+    MOVING = 'MOVING',
+    CHARGING = 'CHARGING',
+    ERROR = 'ERROR',
+}
+
 // === INTERFACES ===
 
 export interface IWarehouse {
@@ -31,6 +38,7 @@ export interface IWarehouse {
     width: number;
     height: number;
     layout_type: string;
+    layout_data: number[][] | null;
     created_at: Date;
     updated_at: Date;
 }
@@ -46,6 +54,21 @@ export interface IWarehouseSlot {
     slot_type: SlotType;
     occupied_percent: number;
     status: SlotStatus;
+    metadata: any; // JSONB for path directions, etc.
+    created_at: Date;
+    updated_at: Date;
+}
+
+export interface IAGV {
+    id: string;
+    code: string;
+    warehouse_id: string;
+    model: string;
+    max_weight: number;
+    battery_capacity: number;
+    status: AGVStatus;
+    current_x: number | null;
+    current_y: number | null;
     created_at: Date;
     updated_at: Date;
 }
@@ -89,12 +112,14 @@ export interface CreateWarehouseSlotDTO {
     width: number;
     height: number;
     slot_type: SlotType;
+    metadata?: any;
 }
 
 export interface UpdateWarehouseSlotDTO {
     slot_type?: SlotType;
     occupied_percent?: number;
     status?: SlotStatus;
+    metadata?: any;
 }
 
 export interface CreateProductDTO {
@@ -112,4 +137,21 @@ export interface UpdateProductDTO {
     width?: number;
     height?: number;
     weight?: number;
+}
+
+export interface CreateAGVDTO {
+    code: string;
+    warehouse_id: string;
+    model: string;
+    max_weight: number;
+    battery_capacity: number;
+}
+
+export interface UpdateAGVDTO {
+    model?: string;
+    max_weight?: number;
+    battery_capacity?: number;
+    status?: AGVStatus;
+    current_x?: number | null;
+    current_y?: number | null;
 }

@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS "warehouse" (
     width INTEGER NOT NULL DEFAULT 10,
     height INTEGER NOT NULL DEFAULT 10,
     layout_type VARCHAR(50) NOT NULL DEFAULT 'GRID',
+    layout_data JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -40,6 +41,7 @@ CREATE TABLE IF NOT EXISTS "warehouse_slot" (
     slot_type VARCHAR(20) NOT NULL DEFAULT 'STORAGE',
     occupied_percent INTEGER NOT NULL DEFAULT 0,
     status VARCHAR(20) NOT NULL DEFAULT 'AVAILABLE',
+    metadata JSONB NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (warehouse_id, slot_code)
@@ -55,6 +57,22 @@ CREATE TABLE IF NOT EXISTS "product" (
     width NUMERIC(10,2) NOT NULL DEFAULT 0,
     height NUMERIC(10,2) NOT NULL DEFAULT 0,
     weight NUMERIC(10,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+`;
+
+const AGV_MIGRATION = `
+CREATE TABLE IF NOT EXISTS "agv" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(50) UNIQUE NOT NULL,
+    warehouse_id UUID NOT NULL REFERENCES "warehouse"(id) ON DELETE CASCADE,
+    model VARCHAR(50) NOT NULL,
+    max_weight NUMERIC(10,2) NOT NULL DEFAULT 0,
+    battery_capacity NUMERIC(10,2) NOT NULL DEFAULT 100,
+    status VARCHAR(20) NOT NULL DEFAULT 'IDLE',
+    current_x INTEGER,
+    current_y INTEGER,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -135,6 +153,7 @@ const MIGRATION_STEPS: Array<{ name: string; sql: string }> = [
     { name: 'warehouse',          sql: WAREHOUSE_MIGRATION },
     { name: 'warehouse_slot',     sql: WAREHOUSE_SLOT_MIGRATION },
     { name: 'product',            sql: PRODUCT_MIGRATION },
+    { name: 'agv',                sql: AGV_MIGRATION },
     { name: 'inventory_item',     sql: INVENTORY_ITEM_MIGRATION },
     { name: 'import_order',       sql: IMPORT_ORDER_MIGRATION },
     { name: 'import_order_item',  sql: IMPORT_ORDER_ITEM_MIGRATION },

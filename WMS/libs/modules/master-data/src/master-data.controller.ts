@@ -17,7 +17,7 @@ import type {
 export class MasterDataController extends Controller {
     private masterDataService: MasterDataService;
 
-    constructor(masterDataService: MasterDataService) {
+    constructor({ masterDataService }: { masterDataService: MasterDataService }) {
         super();
         this.masterDataService = masterDataService;
     }
@@ -31,9 +31,15 @@ export class MasterDataController extends Controller {
         return this.masterDataService.getAllWarehouses();
     }
 
-    @Get('warehouses/{id}')
-    public async getWarehouseById(@Path() id: string): Promise<IWarehouse> {
-        return this.masterDataService.getWarehouseById(id);
+    @Get('warehouses/{idOrCode}')
+    public async getWarehouseById(@Path() idOrCode: string): Promise<IWarehouse> {
+        return this.masterDataService.getWarehouseByIdOrCode(idOrCode);
+    }
+
+    @Get('warehouses/check/{code}')
+    public async checkWarehouseCodeExists(@Path() code: string): Promise<{ exists: boolean }> {
+        const exists = await this.masterDataService.checkWarehouseCodeExists(code);
+        return { exists };
     }
 
     @Post('warehouses')
@@ -57,9 +63,9 @@ export class MasterDataController extends Controller {
     // Warehouse Slot Endpoints
     // ============================================================
 
-    @Get('warehouses/{warehouseId}/slots')
-    public async getSlotsByWarehouseId(@Path() warehouseId: string): Promise<IWarehouseSlot[]> {
-        return this.masterDataService.getSlotsByWarehouseId(warehouseId);
+    @Get('warehouses/{idOrCode}/slots')
+    public async getSlotsByWarehouseId(@Path() idOrCode: string): Promise<IWarehouseSlot[]> {
+        return this.masterDataService.getSlotsByWarehouseId(idOrCode);
     }
 
     @Get('warehouses/{warehouseId}/slots/available')
