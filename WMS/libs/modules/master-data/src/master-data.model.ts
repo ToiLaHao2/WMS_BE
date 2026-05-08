@@ -94,6 +94,7 @@ export interface CreateWarehouseDTO {
     width: number;
     height: number;
     layout_type: string;
+    initial_agv_count?: number;
 }
 
 export interface UpdateWarehouseDTO {

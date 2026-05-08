@@ -1,8 +1,9 @@
 import type { WarehouseRepository } from './repositories/warehouse.repository';
 import type { WarehouseSlotRepository } from './repositories/warehouse-slot.repository';
 import type { ProductRepository } from './repositories/product.repository';
+import type { AGVRepository } from './repositories/agv.repository';
 import type {
-    IWarehouse, IWarehouseSlot, IProduct,
+    IWarehouse, IWarehouseSlot, IProduct, IAGV,
     CreateWarehouseDTO, UpdateWarehouseDTO,
     CreateWarehouseSlotDTO, UpdateWarehouseSlotDTO,
     CreateProductDTO, UpdateProductDTO,
@@ -21,19 +22,23 @@ export class MasterDataService {
     private warehouseRepo: WarehouseRepository;
     private warehouseSlotRepo: WarehouseSlotRepository;
     private productRepo: ProductRepository;
+    private agvRepo: AGVRepository;
 
     constructor({
         warehouseRepository,
         warehouseSlotRepository,
         productRepository,
+        agvRepository,
     }: {
         warehouseRepository: WarehouseRepository;
         warehouseSlotRepository: WarehouseSlotRepository;
         productRepository: ProductRepository;
+        agvRepository: AGVRepository;
     }) {
         this.warehouseRepo = warehouseRepository;
         this.warehouseSlotRepo = warehouseSlotRepository;
         this.productRepo = productRepository;
+        this.agvRepo = agvRepository;
     }
 
     // ============================================================
@@ -161,7 +166,27 @@ export class MasterDataService {
                 await this.warehouseSlotRepo.bulkCreateSlotsWithClient(client, batch);
             }
 
-            // ── 5. Cache to Redis ────────────────────────────────
+            // ── 5. Spawn Initial AGVs ───────────────────────────
+            if (data.initial_agv_count && data.initial_agv_count > 0) {
+                const chargingSlots = functionalSlots.filter(s => s.slot_type === SlotType.CHARGING);
+                const agvToCreate = Math.min(data.initial_agv_count, chargingSlots.length);
+                
+                for (let i = 0; i < agvToCreate; i++) {
+                    const slot = chargingSlots[i];
+                    await this.agvRepo.createAGVWithClient(client, {
+                        code: `AGV-${warehouse.code}-${(i + 1).toString().padStart(3, '0')}`,
+                        warehouse_id: warehouse.id,
+                        model: 'STANDARD-X1',
+                        max_weight: 500,
+                        battery_capacity: 100,
+                        current_x: slot.x,
+                        current_y: slot.y
+                    });
+                }
+                console.log(`🤖 Spawned ${agvToCreate} AGVs for warehouse ${warehouse.code}`);
+            }
+
+            // ── 6. Cache to Redis ────────────────────────────────
             if (cacheManager) {
                 await cacheManager.set(`warehouse:${wId}:layout`, grid, 86400);
                 // Index the code for quick existence check (Facebook-style)
@@ -176,6 +201,10 @@ export class MasterDataService {
 
     async updateWarehouse(id: string, data: UpdateWarehouseDTO): Promise<IWarehouse> {
         return this.warehouseRepo.updateWarehouse(id, data);
+    }
+
+    async getAGVsByWarehouse(warehouseId: string): Promise<IAGV[]> {
+        return this.agvRepo.findByWarehouse(warehouseId);
     }
 
     async deleteWarehouse(id: string): Promise<boolean> {

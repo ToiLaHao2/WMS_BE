@@ -8,19 +8,21 @@ export class WarehouseRepository extends BasePostgresRepository {
     }
 
     async findByCode(code: string): Promise<IWarehouse | null> {
-        const rows = await this.findWhere({ code });
-        return (rows[0] as IWarehouse) ?? null;
+        const result = await this.findWhere({ code });
+        return result[0] as unknown as IWarehouse ?? null;
     }
 
     async createWarehouse(data: CreateWarehouseDTO): Promise<IWarehouse> {
-        return this.create(data) as Promise<IWarehouse>;
+        const result = await this.create(data as any);
+        return result as unknown as IWarehouse;
     }
 
     async updateWarehouse(id: string, data: UpdateWarehouseDTO): Promise<IWarehouse> {
-        return this.update(id, data) as Promise<IWarehouse>;
+        const result = await this.update(id, data as any);
+        return result as unknown as IWarehouse;
     }
 
     async getAllWarehouses(): Promise<IWarehouse[]> {
-        return this.findAll() as Promise<IWarehouse[]>;
+        return this.findAll() as unknown as Promise<IWarehouse[]>;
     }
 }

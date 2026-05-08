@@ -8,19 +8,21 @@ export class ProductRepository extends BasePostgresRepository {
     }
 
     async findByCode(code: string): Promise<IProduct | null> {
-        const rows = await this.findWhere({ code });
-        return (rows[0] as IProduct) ?? null;
+        const result = await this.findWhere({ code });
+        return result[0] as unknown as IProduct ?? null;
     }
 
     async createProduct(data: CreateProductDTO): Promise<IProduct> {
-        return this.create(data) as Promise<IProduct>;
+        const result = await this.create(data as any);
+        return result as unknown as IProduct;
     }
 
     async updateProduct(id: string, data: UpdateProductDTO): Promise<IProduct> {
-        return this.update(id, data) as Promise<IProduct>;
+        const result = await this.update(id, data as any);
+        return result as unknown as IProduct;
     }
 
     async getAllProducts(): Promise<IProduct[]> {
-        return this.findAll() as Promise<IProduct[]>;
+        return this.findAll() as unknown as Promise<IProduct[]>;
     }
 }
