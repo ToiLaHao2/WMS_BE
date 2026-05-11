@@ -3,7 +3,8 @@ import { IAGV, CreateAGVDTO, AGVStatus } from '../master-data.model';
 import { PoolClient } from 'pg';
 
 export class AGVRepository extends BasePostgresRepository {
-    constructor(db: IDatabaseAdapter) {
+    public static readonly injectionKey = 'agvRepository';
+    constructor({ db }: { db: IDatabaseAdapter }) {
         super(db, 'agv');
     }
 

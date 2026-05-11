@@ -45,6 +45,7 @@ const models: TsoaRoute.Models = {
             "width": {"dataType":"double","required":true},
             "height": {"dataType":"double","required":true},
             "layout_type": {"dataType":"string","required":true},
+            "initial_agv_count": {"dataType":"double"},
         },
         "additionalProperties": false,
     },
@@ -244,6 +245,41 @@ export function RegisterRoutes(app: Router) {
 
               await templateService.apiHandler({
                 methodName: 'getWarehouseById',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsMasterDataController_checkWarehouseCodeExists: Record<string, TsoaRoute.ParameterSchema> = {
+                code: {"in":"path","name":"code","required":true,"dataType":"string"},
+        };
+        app.get('/master-data/warehouses/check/:code',
+            ...(fetchMiddlewares<RequestHandler>(MasterDataController)),
+            ...(fetchMiddlewares<RequestHandler>(MasterDataController.prototype.checkWarehouseCodeExists)),
+
+            async function MasterDataController_checkWarehouseCodeExists(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsMasterDataController_checkWarehouseCodeExists, request, response });
+
+                const container: IocContainer = typeof iocContainer === 'function' ? (iocContainer as IocContainerFactory)(request) : iocContainer;
+
+                const controller: any = await container.get<MasterDataController>(MasterDataController);
+                if (typeof controller['setStatus'] === 'function') {
+                controller.setStatus(undefined);
+                }
+
+              await templateService.apiHandler({
+                methodName: 'checkWarehouseCodeExists',
                 controller,
                 response,
                 next,

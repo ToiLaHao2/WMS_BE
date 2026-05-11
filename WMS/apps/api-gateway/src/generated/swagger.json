@@ -89,6 +89,10 @@
 					},
 					"layout_type": {
 						"type": "string"
+					},
+					"initial_agv_count": {
+						"type": "number",
+						"format": "double"
 					}
 				},
 				"required": [
@@ -530,6 +534,45 @@
 					{
 						"in": "path",
 						"name": "idOrCode",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/master-data/warehouses/check/{code}": {
+			"get": {
+				"operationId": "CheckWarehouseCodeExists",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"properties": {
+										"exists": {
+											"type": "boolean"
+										}
+									},
+									"required": [
+										"exists"
+									],
+									"type": "object"
+								}
+							}
+						}
+					}
+				},
+				"tags": [
+					"Master Data"
+				],
+				"security": [],
+				"parameters": [
+					{
+						"in": "path",
+						"name": "code",
 						"required": true,
 						"schema": {
 							"type": "string"
