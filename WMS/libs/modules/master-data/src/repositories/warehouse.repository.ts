@@ -23,6 +23,8 @@ export class WarehouseRepository extends BasePostgresRepository {
     }
 
     async getAllWarehouses(): Promise<IWarehouse[]> {
-        return this.findAll() as unknown as Promise<IWarehouse[]>;
+        const query = `SELECT id, code, name, description, width, height, layout_type, created_at, updated_at FROM "${this.tableName}" ORDER BY created_at DESC`;
+        const results = await this.rawQuery(query);
+        return results as unknown as IWarehouse[];
     }
 }

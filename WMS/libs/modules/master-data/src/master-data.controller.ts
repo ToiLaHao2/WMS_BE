@@ -60,6 +60,15 @@ export class MasterDataController extends Controller {
     }
 
     // ============================================================
+    // AGV Endpoints
+    // ============================================================
+
+    @Get('warehouses/{warehouseId}/agvs')
+    public async getAGVsByWarehouseId(@Path() warehouseId: string): Promise<any[]> {
+        return this.masterDataService.getAGVsByWarehouse(warehouseId);
+    }
+
+    // ============================================================
     // Warehouse Slot Endpoints
     // ============================================================
 

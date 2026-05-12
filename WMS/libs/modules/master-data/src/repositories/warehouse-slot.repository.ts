@@ -8,7 +8,10 @@ export class WarehouseSlotRepository extends BasePostgresRepository {
     }
 
     async findByWarehouseId(warehouseId: string): Promise<IWarehouseSlot[]> {
-        return this.findWhere({ warehouse_id: warehouseId }) as unknown as Promise<IWarehouseSlot[]>;
+        const query = `SELECT id, slot_code, x, y, width, height, slot_type, occupied_percent, status, metadata, created_at, updated_at 
+                       FROM "warehouse_slot" WHERE warehouse_id = $1 ORDER BY y, x`;
+        const results = await this.rawQuery(query, [warehouseId]);
+        return results as unknown as IWarehouseSlot[];
     }
 
     async findBySlotCode(warehouseId: string, slotCode: string): Promise<IWarehouseSlot | null> {

@@ -80,54 +80,109 @@ export class MasterDataService {
         return false;
     }
 
+    // ─────────────────────────────────────────────────────────
+    // LAYOUT GENERATION HELPERS
+    // ─────────────────────────────────────────────────────────
+    private readonly GRID_AISLE = 0;
+    private readonly GRID_STORAGE = 1;
+    private readonly GRID_BLOCKED = 2;
+    private readonly GRID_CHARGING = 3;
+    private readonly GRID_INBOUND = 4;
+    private readonly GRID_OUTBOUND = 5;
+
+    private generateBaseGrid(rows: number, cols: number): number[][] {
+        const grid = Array.from({ length: rows }, () => Array(cols).fill(this.GRID_AISLE));
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                if (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) {
+                    grid[r][c] = this.GRID_BLOCKED;
+                }
+            }
+        }
+        return grid;
+    }
+
+    private applyStorageLayout(grid: number[][], layoutType: string, rows: number, cols: number): void {
+        let blockWidth = layoutType === 'HIGH_DENSITY' ? 5 : 3;
+        let blockHeight = layoutType === 'HIGH_DENSITY' ? 9 : 5;
+        if (layoutType === 'CROSS_DOCKING') {
+            blockWidth = 1; 
+            blockHeight = 4;
+        }
+
+        // Top-Left Packing Strategy to maximize density
+        const startR = 2;
+        const startC = 2;
+        
+        // Reserve bottom rows for Main Highway (rows-5), Charging/Dock Access (rows-4, rows-3), Docks (rows-2), Wall (rows-1)
+        const maxRackR = rows - 5;
+        const maxRackC = cols - 3; // reserve right perimeter
+
+        for (let r = startR; r <= maxRackR; r++) {
+            for (let c = startC; c <= maxRackC; c++) {
+                const cr = r - startR;
+                const cc = c - startC;
+
+                switch (layoutType) {
+                    case 'HIGH_DENSITY':
+                        if (cc % 5 < 4 && cr % 9 < 8) grid[r][c] = this.GRID_STORAGE;
+                        break;
+                    case 'CROSS_DOCKING':
+                        const isWing = c < 5 || c > cols - 6;
+                        if (isWing && cr % 4 < 3) grid[r][c] = this.GRID_STORAGE;
+                        break;
+                    case 'STANDARD':
+                    default:
+                        if (cc % 3 < 2 && cr % 5 < 4) grid[r][c] = this.GRID_STORAGE;
+                        break;
+                }
+            }
+        }
+    }
+
+    private applyChargingStations(grid: number[][], rows: number, cols: number): void {
+        const innerWidthForCharge = cols - 4;
+        const chargingCount = Math.max(4, Math.min(innerWidthForCharge, Math.ceil((cols * rows) / 200)));
+        const chargingRow = rows - 3;
+        const chargeOffsetX = 2; // Góc trái theo yêu cầu
+
+        if (chargingRow >= 2) {
+            for (let i = 0; i < chargingCount; i++) {
+                grid[chargingRow][chargeOffsetX + i] = this.GRID_CHARGING;
+            }
+        }
+    }
+
+    private applyDocks(grid: number[][], rows: number, cols: number): void {
+        const dockRow = rows - 2; // Ngay trên bức tường dưới cùng
+        if (dockRow <= 2) return;
+
+        // INBOUND Docks
+        const inStart = 8;
+        const inWidth = Math.floor(cols / 4);
+        for (let c = inStart; c < inStart + inWidth && c < cols - 2; c++) {
+            grid[dockRow][c] = this.GRID_INBOUND;
+        }
+
+        // OUTBOUND Docks
+        const outStart = inStart + inWidth + 2; // Cách 2 ô
+        const outWidth = Math.floor(cols / 4);
+        for (let c = outStart; c < outStart + outWidth && c < cols - 2; c++) {
+            grid[dockRow][c] = this.GRID_OUTBOUND;
+        }
+    }
+    // ─────────────────────────────────────────────────────────
+
     async createWarehouse(data: CreateWarehouseDTO): Promise<IWarehouse> {
         return transactionManager.runInTransaction(async (client) => {
             const cols = data.width;
             const rows = data.height;
 
             // ── 1. Generate Grid Matrix ──────────────────────────
-            // Grid values: 0=AISLE, 1=STORAGE, 2=BLOCKED(wall), 3=CHARGING
-            const GRID_AISLE = 0;
-            const GRID_STORAGE = 1;
-            const GRID_BLOCKED = 2;
-            const GRID_CHARGING = 3;
-
-            const grid: number[][] = Array.from({ length: rows }, () => Array(cols).fill(GRID_AISLE));
-
-            // Step 1: Outer walls
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < cols; c++) {
-                    if (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) {
-                        grid[r][c] = GRID_BLOCKED;
-                    }
-                }
-            }
-
-            // Step 2: Perimeter aisles (ring inside walls) — already AISLE by default
-
-            // Step 3: Inner core — rack blocks (2-wide, 4-tall, separated by 1-cell aisles)
-            for (let r = 2; r < rows - 2; r++) {
-                for (let c = 2; c < cols - 2; c++) {
-                    const cr = r - 2;
-                    const cc = c - 2;
-                    const isRackCol = cc % 3 < 2;
-                    const isRackRow = cr % 5 < 4;
-                    if (isRackCol && isRackRow) {
-                        grid[r][c] = GRID_STORAGE;
-                    }
-                }
-            }
-
-            // Step 4: Adaptive Charging Zone
-            // Calculate number of charging stations based on warehouse size
-            const innerWidth = cols - 4;
-            const chargingCount = Math.max(4, Math.min(innerWidth, Math.ceil((cols * rows) / 200)));
-            const chargingRow = rows - 3;
-            if (chargingRow >= 2) {
-                for (let i = 0; i < chargingCount && (2 + i) < cols - 2; i++) {
-                    grid[chargingRow][2 + i] = GRID_CHARGING;
-                }
-            }
+            const grid = this.generateBaseGrid(rows, cols);
+            this.applyStorageLayout(grid, data.layout_type || 'STANDARD', rows, cols);
+            this.applyChargingStations(grid, rows, cols);
+            this.applyDocks(grid, rows, cols);
 
             // ── 2. Create Warehouse with layout_data ────────────
             const warehouseResult = await this.warehouseRepo.rawQueryWithClient<IWarehouse>(client,
@@ -139,13 +194,17 @@ export class MasterDataService {
             const warehouse = warehouseResult[0];
             const wId = warehouse.id;
 
-            // ── 3. Extract ONLY functional slots (STORAGE + CHARGING) ──
+            // ── 3. Extract ONLY functional slots (STORAGE + CHARGING + DOCKS) ──
             const functionalSlots: CreateWarehouseSlotDTO[] = [];
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
                     const cellValue = grid[r][c];
-                    if (cellValue === GRID_STORAGE || cellValue === GRID_CHARGING) {
-                        const slotType = cellValue === GRID_STORAGE ? SlotType.STORAGE : SlotType.CHARGING;
+                    if (cellValue === this.GRID_STORAGE || cellValue === this.GRID_CHARGING || cellValue === this.GRID_INBOUND || cellValue === this.GRID_OUTBOUND) {
+                        let slotType = SlotType.STORAGE;
+                        if (cellValue === this.GRID_CHARGING) slotType = SlotType.CHARGING;
+                        if (cellValue === this.GRID_INBOUND) slotType = SlotType.PICKUP;
+                        if (cellValue === this.GRID_OUTBOUND) slotType = SlotType.DROPOFF;
+
                         functionalSlots.push({
                             warehouse_id: wId,
                             slot_code: `R${r}-C${c}`,
