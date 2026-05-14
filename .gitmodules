@@ -1,0 +1,3 @@
+[submodule "WMS/libs/core/contracts/Warehouse_management_simulation_Contracts"]
+	path = WMS/libs/core/contracts/Warehouse_management_simulation_Contracts
+	url = https://github.com/ToiLaHao2/Warehouse_management_simulation_Contracts.git
