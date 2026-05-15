@@ -1,62 +1,67 @@
 # Warehouse Management System Simulation - WMSS (Backend / ERP_WMS Layer)
 
-Dự án này là mảnh ghép cốt lõi (Tầng WMS/ERP) trong hệ thống mô phỏng tự động hóa nhà kho đa ngôn ngữ (Polyglot Microservices). Hệ thống tổng thể bao gồm 3 tác nhân chính phối hợp với nhau:
+Dự án này là mảnh ghép cốt lõi (Tầng WMS/ERP) trong hệ thống mô phỏng tự động hóa nhà kho đa ngôn ngữ (Polyglot Microservices). Hệ thống tổng thể kiến trúc bao gồm 3 tầng:
 
-- **ERP / WMS (Node.js):** Đóng vai trò là "Bộ não chiến lược" - Quản lý logic hàng hóa và ra lệnh.
-- **MES (Python):** Đóng vai trò "Người điều phối" - Lập lịch và phân bổ tác vụ.
-- **AGV Control Service (Golang):** Đóng vai trò "Hệ cơ bắp" - Điều khiển và tính toán tọa độ di chuyển thực tế cho robot AGV.
+- **ERP / WMS (Node.js):** Lớp Business (Quản lý nghiệp vụ) — Trả lời câu hỏi *"Cần làm gì?"*.
+- **MES (Python):** Lớp Decision (Quyết định & Điều phối) — Trả lời câu hỏi *"Làm như thế nào?"*.
+- **AGV Control (Golang):** Lớp Execution (Thực thi Realtime) — Trả lời câu hỏi *"Thực thi ra sao?"*.
 
 ---
 
-## Vai trò của lớp WMS (Node.js)
+## 🎯 Vai trò của lớp WMS (Node.js)
 
-Lớp WMS chịu trách nhiệm toàn bộ về mặt **Logic Dữ Liệu** của nhà kho. WMS sẽ quyết định "Có bao nhiêu hàng?", "Hàng cất ở đâu?", và ra lệnh "Nhập/Xuất hàng này đi" xuống cho tầng MES và AGV.
+WMS là **"Source of truth" cho business**. Nó quản lý kho, sản phẩm, hàng tồn kho, luồng nhập/xuất và trạng thái nghiệp vụ và WMS cũng là cổng giao tiếp duy nhất đối với Frontend (FE).
 
-## Các Module Cốt Lõi
+---
 
-### 1. Module `master-data` (Dữ liệu gốc)
+## 🚀 Các Module Cốt Lõi
 
-Quản lý các thông tin tĩnh để tạo nền tảng vẽ bản đồ và nhận diện hàng hóa:
+### 1. Module `master-data` (Quản lý Nhà Kho & Sản Phẩm)
 
-* **Products (Sản phẩm):** Quản lý danh mục hàng hóa cơ bản (ID, Tên, Mã SKU).
-* **Locations (Sơ đồ kho):** Quản lý danh sách các Kệ (Rack/Bin) và trạng thái không gian của kệ (Trống / Đầy).
+Quản lý các thông tin tĩnh và cấu trúc vật lý của kho:
+
+* **Warehouse Management:** Tạo kho, generate layout (sơ đồ kho), quản lý danh sách slot.
+* **Product Management:** Quản lý thông tin sản phẩm (ID, tên, metadata, kích thước, trọng lượng).
 
 ### 2. Module `inventory` (Quản lý Tồn kho)
 
-Trái tim của hệ thống kiểm soát tài sản:
+Theo dõi trạng thái thời gian thực của hàng hóa:
 
-* **Inventory Status:** Lưu trữ logic liên kết (Mapping) giữa Sản phẩm và Vị trí (Sản phẩm A đang nằm ở Kệ B với số lượng X).
-* **Transaction Logic:** Đảm bảo tính nhất quán của dữ liệu (Data Consistency) thông qua các hàm thêm/bớt tồn kho an toàn, tránh lỗi âm số lượng.
+* **Inventory Tracking:** Lưu trữ thông tin item đang ở đâu, slot nào đang bị chiếm dụng (occupied).
+* **Business Validation:** Kiểm tra các rule nghiệp vụ (VD: Hàng quá lớn so với chuẩn? Kho đã đầy chưa?) trước khi xử lý lệnh.
 
 ### 3. Module `inbound` (Quản lý Nhập hàng)
 
-Xử lý luồng Automation Push:
+Xử lý luồng nhập hàng (Import Order):
 
-* Nhận yêu cầu nhập kho từ người dùng.
-* Tự động thuật toán tìm kiếm vị trí Kệ đang trống trong `master-data`.
-* Tạo task và gọi **gRPC** xuống tầng MES/AGV để điều xe robot gắp hàng vào vị trí đã chỉ định.
+* Nhận yêu cầu nhập hàng từ người dùng (Frontend).
+* Validate các quy tắc nghiệp vụ.
+* Đẩy **Task (Yêu cầu nhập hàng)** qua **Kafka** xuống tầng MES (MES sẽ lo tìm vị trí slot tối ưu, tính đường đi và tạo execution plan).
 
 ### 4. Module `outbound` (Quản lý Xuất hàng)
 
-Xử lý luồng Automation Pull:
+Xử lý luồng xuất hàng (Export Order):
 
-* Nhận yêu cầu xuất mặt hàng cụ thể.
-* Tự động truy xuất `inventory` để tìm ra mặt hàng đó đang nằm ở Kệ nào.
-* Khóa (Lock) số lượng hàng và gọi **gRPC** xuống tầng MES/AGV để điều xe vào đúng kệ lấy hàng ra cửa.
+* Nhận yêu cầu xuất một mặt hàng.
+* Truy xuất `inventory` để biết mặt hàng đang ở đâu.
+* Đẩy **Task (Yêu cầu xuất hàng)** qua **Kafka** xuống tầng MES để điều động xử lý việc lấy hàng.
 
 ### 5. Module `events / socket` (Real-time Communication)
 
-Phô diễn kỹ năng giao tiếp thời gian thực:
+Cổng giao tiếp thời gian thực (Realtime) duy nhất với Frontend:
 
-* Lắng nghe tín hiệu từ tầng AGV (Golang) báo cáo tác vụ hoàn thành.
-* Cập nhật Database và ngay lập tức **Broadcast qua Socket.io** để Frontend cập nhật trạng thái UI (màu sắc kệ, số lượng tồn kho) mà không cần reload trang.
+* **WMS là cổng duy nhất cho FE:** Frontend chỉ kết nối WebSocket tới WMS.
+* **Broadcast vị trí AGV:** Lắng nghe event từ **Redis Pub/Sub** (do tầng Golang publish vị trí AGV lên) và broadcast ngược lại cho Frontend thông qua **Socket.io Redis Adapter**.
+* Cập nhật trạng thái inventory/task realtime xuống FE khi nhận được báo cáo hoàn thành.
 
 ---
 
-## Công nghệ sử dụng
+## 🛠 Công nghệ & Giao tiếp (Communication Strategy)
 
 * **Framework:** Node.js, Express, TypeScript.
 * **Architecture:** Modular Monolith (sẵn sàng tách Microservices).
-* **Inter-service Communication:** gRPC (Giao tiếp backend-to-backend), Socket.io (Giao tiếp backend-to-frontend).
-* **Dependency Injection:** Awilix / TSOA.
-* **Message Queue:** Kafk
+* **HTTP REST:** Giao tiếp với FE cho các tác vụ business.
+* **WebSocket (Socket.io):** Giao tiếp realtime với FE (Cập nhật vị trí AGV, trạng thái kho).
+* **Kafka:** Giao tiếp bất đồng bộ (Async) với MES để giao Task và nhận Report hoàn thành.
+* **gRPC:** Giao tiếp đồng bộ (Sync) với MES khi cần kết quả xử lý ngay lập tức (VD: preview/query).
+* **Redis:** Lưu trữ Shared Data (Grid, AGV positions) và dùng làm Pub/Sub cho hệ thống Socket.
