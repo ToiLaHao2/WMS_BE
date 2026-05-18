@@ -21,11 +21,16 @@ const mesProto = (grpc.loadPackageDefinition(packageDefinition) as any).mes;
  * gRPC Client để giao tiếp với dịch vụ MES (Python)
  */
 export class MesGrpcClient {
-    private client: any;
+    private pathClient: any;
+    private slotClient: any;
 
     constructor(address: string = 'localhost:50051') {
         // Khởi tạo kết nối insecure (không TLS) tới server Python
-        this.client = new mesProto.PathfindingService(
+        this.pathClient = new mesProto.PathfindingService(
+            address,
+            grpc.credentials.createInsecure()
+        );
+        this.slotClient = new mesProto.SlotAllocationService(
             address,
             grpc.credentials.createInsecure()
         );
@@ -50,7 +55,33 @@ export class MesGrpcClient {
             };
 
             // Gọi hàm CalculatePath đã định nghĩa trong proto
-            this.client.CalculatePath(request, (error: any, response: any) => {
+            this.pathClient.CalculatePath(request, (error: any, response: any) => {
+                if (error) {
+                    return reject(error);
+                }
+                resolve(response);
+            });
+        });
+    }
+
+    /**
+     * Xin cấp phát slot cho kiện hàng từ MES
+     */
+    public allocateSlot(
+        warehouseId: string,
+        itemId: string,
+        length: number,
+        width: number
+    ): Promise<{ success: boolean; slot_id: string; message: string; error_code: string }> {
+        return new Promise((resolve, reject) => {
+            const request = {
+                warehouse_id: warehouseId,
+                item_id: itemId,
+                length: length,
+                width: width
+            };
+
+            this.slotClient.AllocateSlot(request, (error: any, response: any) => {
                 if (error) {
                     return reject(error);
                 }

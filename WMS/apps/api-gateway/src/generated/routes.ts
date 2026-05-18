@@ -4,7 +4,11 @@
 import type { TsoaRoute } from '@tsoa/runtime';
 import {  fetchMiddlewares, ExpressTemplateService } from '@tsoa/runtime';
 // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+import { OutboundController } from './../../../../libs/modules/outbound/src/outbound.controller';
+// WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 import { MasterDataController } from './../../../../libs/modules/master-data/src/master-data.controller';
+// WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+import { InboundController } from './../../../../libs/modules/inbound/src/inbound.controller';
 // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 import { HealthController } from './../../../../libs/core/http/src/health.controller';
 import { expressAuthentication } from './../../../../libs/core/http/src/authentication';
@@ -19,6 +23,43 @@ const expressAuthenticationRecasted = expressAuthentication as (req: ExRequest, 
 // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 
 const models: TsoaRoute.Models = {
+    "OutboundOrderStatus": {
+        "dataType": "refEnum",
+        "enums": ["PENDING","VALIDATED","PROCESSING","COMPLETED","FAILED"],
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "IOutboundOrder": {
+        "dataType": "refObject",
+        "properties": {
+            "id": {"dataType":"string","required":true},
+            "warehouse_id": {"dataType":"string","required":true},
+            "code": {"dataType":"string","required":true},
+            "status": {"ref":"OutboundOrderStatus","required":true},
+            "created_at": {"dataType":"datetime","required":true},
+            "updated_at": {"dataType":"datetime","required":true},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "OutboundOrderItemDTO": {
+        "dataType": "refObject",
+        "properties": {
+            "product_id": {"dataType":"string","required":true},
+            "quantity": {"dataType":"double","required":true},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "CreateOutboundOrderDTO": {
+        "dataType": "refObject",
+        "properties": {
+            "warehouse_id": {"dataType":"string","required":true},
+            "code": {"dataType":"string","required":true},
+            "items": {"dataType":"array","array":{"dataType":"refObject","ref":"OutboundOrderItemDTO"},"required":true},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
     "IWarehouse": {
         "dataType": "refObject",
         "properties": {
@@ -159,6 +200,43 @@ const models: TsoaRoute.Models = {
         "additionalProperties": false,
     },
     // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "InboundOrderStatus": {
+        "dataType": "refEnum",
+        "enums": ["PENDING","ALLOCATED","PROCESSING","COMPLETED","FAILED"],
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "IInboundOrder": {
+        "dataType": "refObject",
+        "properties": {
+            "id": {"dataType":"string","required":true},
+            "warehouse_id": {"dataType":"string","required":true},
+            "code": {"dataType":"string","required":true},
+            "status": {"ref":"InboundOrderStatus","required":true},
+            "created_at": {"dataType":"datetime","required":true},
+            "updated_at": {"dataType":"datetime","required":true},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "InboundOrderItemDTO": {
+        "dataType": "refObject",
+        "properties": {
+            "product_id": {"dataType":"string","required":true},
+            "quantity": {"dataType":"double","required":true},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "CreateInboundOrderDTO": {
+        "dataType": "refObject",
+        "properties": {
+            "warehouse_id": {"dataType":"string","required":true},
+            "code": {"dataType":"string","required":true},
+            "items": {"dataType":"array","array":{"dataType":"refObject","ref":"InboundOrderItemDTO"},"required":true},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
     "HealthStatus": {
         "dataType": "refObject",
         "properties": {
@@ -187,6 +265,110 @@ export function RegisterRoutes(app: Router) {
 
 
     
+        const argsOutboundController_createOutboundOrder: Record<string, TsoaRoute.ParameterSchema> = {
+                body: {"in":"body","name":"body","required":true,"ref":"CreateOutboundOrderDTO"},
+        };
+        app.post('/outbound',
+            ...(fetchMiddlewares<RequestHandler>(OutboundController)),
+            ...(fetchMiddlewares<RequestHandler>(OutboundController.prototype.createOutboundOrder)),
+
+            async function OutboundController_createOutboundOrder(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsOutboundController_createOutboundOrder, request, response });
+
+                const container: IocContainer = typeof iocContainer === 'function' ? (iocContainer as IocContainerFactory)(request) : iocContainer;
+
+                const controller: any = await container.get<OutboundController>(OutboundController);
+                if (typeof controller['setStatus'] === 'function') {
+                controller.setStatus(undefined);
+                }
+
+              await templateService.apiHandler({
+                methodName: 'createOutboundOrder',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsOutboundController_getAllOutboundOrders: Record<string, TsoaRoute.ParameterSchema> = {
+        };
+        app.get('/outbound',
+            ...(fetchMiddlewares<RequestHandler>(OutboundController)),
+            ...(fetchMiddlewares<RequestHandler>(OutboundController.prototype.getAllOutboundOrders)),
+
+            async function OutboundController_getAllOutboundOrders(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsOutboundController_getAllOutboundOrders, request, response });
+
+                const container: IocContainer = typeof iocContainer === 'function' ? (iocContainer as IocContainerFactory)(request) : iocContainer;
+
+                const controller: any = await container.get<OutboundController>(OutboundController);
+                if (typeof controller['setStatus'] === 'function') {
+                controller.setStatus(undefined);
+                }
+
+              await templateService.apiHandler({
+                methodName: 'getAllOutboundOrders',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsOutboundController_getOutboundOrderById: Record<string, TsoaRoute.ParameterSchema> = {
+                id: {"in":"path","name":"id","required":true,"dataType":"string"},
+        };
+        app.get('/outbound/:id',
+            ...(fetchMiddlewares<RequestHandler>(OutboundController)),
+            ...(fetchMiddlewares<RequestHandler>(OutboundController.prototype.getOutboundOrderById)),
+
+            async function OutboundController_getOutboundOrderById(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsOutboundController_getOutboundOrderById, request, response });
+
+                const container: IocContainer = typeof iocContainer === 'function' ? (iocContainer as IocContainerFactory)(request) : iocContainer;
+
+                const controller: any = await container.get<OutboundController>(OutboundController);
+                if (typeof controller['setStatus'] === 'function') {
+                controller.setStatus(undefined);
+                }
+
+              await templateService.apiHandler({
+                methodName: 'getOutboundOrderById',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsMasterDataController_getAllWarehouses: Record<string, TsoaRoute.ParameterSchema> = {
         };
         app.get('/master-data/warehouses',
@@ -807,6 +989,110 @@ export function RegisterRoutes(app: Router) {
 
               await templateService.apiHandler({
                 methodName: 'deleteProduct',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsInboundController_createInboundOrder: Record<string, TsoaRoute.ParameterSchema> = {
+                body: {"in":"body","name":"body","required":true,"ref":"CreateInboundOrderDTO"},
+        };
+        app.post('/inbound',
+            ...(fetchMiddlewares<RequestHandler>(InboundController)),
+            ...(fetchMiddlewares<RequestHandler>(InboundController.prototype.createInboundOrder)),
+
+            async function InboundController_createInboundOrder(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsInboundController_createInboundOrder, request, response });
+
+                const container: IocContainer = typeof iocContainer === 'function' ? (iocContainer as IocContainerFactory)(request) : iocContainer;
+
+                const controller: any = await container.get<InboundController>(InboundController);
+                if (typeof controller['setStatus'] === 'function') {
+                controller.setStatus(undefined);
+                }
+
+              await templateService.apiHandler({
+                methodName: 'createInboundOrder',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsInboundController_getAllInboundOrders: Record<string, TsoaRoute.ParameterSchema> = {
+        };
+        app.get('/inbound',
+            ...(fetchMiddlewares<RequestHandler>(InboundController)),
+            ...(fetchMiddlewares<RequestHandler>(InboundController.prototype.getAllInboundOrders)),
+
+            async function InboundController_getAllInboundOrders(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsInboundController_getAllInboundOrders, request, response });
+
+                const container: IocContainer = typeof iocContainer === 'function' ? (iocContainer as IocContainerFactory)(request) : iocContainer;
+
+                const controller: any = await container.get<InboundController>(InboundController);
+                if (typeof controller['setStatus'] === 'function') {
+                controller.setStatus(undefined);
+                }
+
+              await templateService.apiHandler({
+                methodName: 'getAllInboundOrders',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsInboundController_getInboundOrderById: Record<string, TsoaRoute.ParameterSchema> = {
+                id: {"in":"path","name":"id","required":true,"dataType":"string"},
+        };
+        app.get('/inbound/:id',
+            ...(fetchMiddlewares<RequestHandler>(InboundController)),
+            ...(fetchMiddlewares<RequestHandler>(InboundController.prototype.getInboundOrderById)),
+
+            async function InboundController_getInboundOrderById(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsInboundController_getInboundOrderById, request, response });
+
+                const container: IocContainer = typeof iocContainer === 'function' ? (iocContainer as IocContainerFactory)(request) : iocContainer;
+
+                const controller: any = await container.get<InboundController>(InboundController);
+                if (typeof controller['setStatus'] === 'function') {
+                controller.setStatus(undefined);
+                }
+
+              await templateService.apiHandler({
+                methodName: 'getInboundOrderById',
                 controller,
                 response,
                 next,

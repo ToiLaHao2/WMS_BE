@@ -6,6 +6,7 @@ import { cacheManager } from '@core/cache';
 import { cloudinaryAdapter, r2Adapter, IStorageProvider } from '@core/storage';
 import { logger } from '@core/logger';
 import { eventBus } from '@core/shared';
+import { MesGrpcClient } from '@core/contracts/mes-grpc.client';
 
 // 1. Initialize PostgreSQL
 postgresAdapter.init({
@@ -73,6 +74,7 @@ container.register({
     storage: asValue(storageProvider),
     logger: asValue(logger),
     eventBus: asValue(eventBus),
+    mesGrpcClient: asValue(new MesGrpcClient()),
 });
 
 console.log('📦 [DI] Core Container initialized with Awilix.');

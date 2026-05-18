@@ -7,6 +7,90 @@
 		"requestBodies": {},
 		"responses": {},
 		"schemas": {
+			"OutboundOrderStatus": {
+				"enum": [
+					"PENDING",
+					"VALIDATED",
+					"PROCESSING",
+					"COMPLETED",
+					"FAILED"
+				],
+				"type": "string"
+			},
+			"IOutboundOrder": {
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"warehouse_id": {
+						"type": "string"
+					},
+					"code": {
+						"type": "string"
+					},
+					"status": {
+						"$ref": "#/components/schemas/OutboundOrderStatus"
+					},
+					"created_at": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"updated_at": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"id",
+					"warehouse_id",
+					"code",
+					"status",
+					"created_at",
+					"updated_at"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"OutboundOrderItemDTO": {
+				"properties": {
+					"product_id": {
+						"type": "string"
+					},
+					"quantity": {
+						"type": "number",
+						"format": "double"
+					}
+				},
+				"required": [
+					"product_id",
+					"quantity"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"CreateOutboundOrderDTO": {
+				"properties": {
+					"warehouse_id": {
+						"type": "string"
+					},
+					"code": {
+						"type": "string"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/OutboundOrderItemDTO"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"warehouse_id",
+					"code",
+					"items"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
 			"IWarehouse": {
 				"properties": {
 					"id": {
@@ -379,6 +463,90 @@
 				"type": "object",
 				"additionalProperties": false
 			},
+			"InboundOrderStatus": {
+				"enum": [
+					"PENDING",
+					"ALLOCATED",
+					"PROCESSING",
+					"COMPLETED",
+					"FAILED"
+				],
+				"type": "string"
+			},
+			"IInboundOrder": {
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"warehouse_id": {
+						"type": "string"
+					},
+					"code": {
+						"type": "string"
+					},
+					"status": {
+						"$ref": "#/components/schemas/InboundOrderStatus"
+					},
+					"created_at": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"updated_at": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"id",
+					"warehouse_id",
+					"code",
+					"status",
+					"created_at",
+					"updated_at"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"InboundOrderItemDTO": {
+				"properties": {
+					"product_id": {
+						"type": "string"
+					},
+					"quantity": {
+						"type": "number",
+						"format": "double"
+					}
+				},
+				"required": [
+					"product_id",
+					"quantity"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"CreateInboundOrderDTO": {
+				"properties": {
+					"warehouse_id": {
+						"type": "string"
+					},
+					"code": {
+						"type": "string"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/InboundOrderItemDTO"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"warehouse_id",
+					"code",
+					"items"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
 			"HealthStatus": {
 				"description": "Response shape for the health check endpoint",
 				"properties": {
@@ -456,6 +624,93 @@
 		"contact": {}
 	},
 	"paths": {
+		"/outbound": {
+			"post": {
+				"operationId": "CreateOutboundOrder",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/IOutboundOrder"
+								}
+							}
+						}
+					}
+				},
+				"description": "Tạo lệnh xuất hàng mới. Hệ thống sẽ tự động quét inventory để tìm vị trí lấy hàng.",
+				"tags": [
+					"Outbound"
+				],
+				"security": [],
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateOutboundOrderDTO"
+							}
+						}
+					}
+				}
+			},
+			"get": {
+				"operationId": "GetAllOutboundOrders",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/IOutboundOrder"
+									},
+									"type": "array"
+								}
+							}
+						}
+					}
+				},
+				"description": "Lấy danh sách tất cả các lệnh xuất hàng.",
+				"tags": [
+					"Outbound"
+				],
+				"security": [],
+				"parameters": []
+			}
+		},
+		"/outbound/{id}": {
+			"get": {
+				"operationId": "GetOutboundOrderById",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {}
+							}
+						}
+					}
+				},
+				"description": "Lấy chi tiết lệnh xuất hàng theo ID (bao gồm cả danh sách vị trí phải đến lấy).",
+				"tags": [
+					"Outbound"
+				],
+				"security": [],
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
 		"/master-data/warehouses": {
 			"get": {
 				"operationId": "GetAllWarehouses",
@@ -1046,6 +1301,93 @@
 				},
 				"tags": [
 					"Master Data"
+				],
+				"security": [],
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/inbound": {
+			"post": {
+				"operationId": "CreateInboundOrder",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/IInboundOrder"
+								}
+							}
+						}
+					}
+				},
+				"description": "Tạo một lệnh nhập hàng mới. Hệ thống sẽ tự động gọi MES xin cấp slot.",
+				"tags": [
+					"Inbound"
+				],
+				"security": [],
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateInboundOrderDTO"
+							}
+						}
+					}
+				}
+			},
+			"get": {
+				"operationId": "GetAllInboundOrders",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/IInboundOrder"
+									},
+									"type": "array"
+								}
+							}
+						}
+					}
+				},
+				"description": "Lấy danh sách tất cả các lệnh nhập hàng.",
+				"tags": [
+					"Inbound"
+				],
+				"security": [],
+				"parameters": []
+			}
+		},
+		"/inbound/{id}": {
+			"get": {
+				"operationId": "GetInboundOrderById",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {}
+							}
+						}
+					}
+				},
+				"description": "Lấy chi tiết lệnh nhập hàng theo ID (bao gồm cả danh sách items và slot_id).",
+				"tags": [
+					"Inbound"
 				],
 				"security": [],
 				"parameters": [
