@@ -23,9 +23,9 @@ const mesProto = (grpc.loadPackageDefinition(packageDefinition) as any).mes;
 export class MesGrpcClient {
     private pathClient: any;
     private slotClient: any;
+    private dispatchClient: any;
 
     constructor(address: string = 'localhost:50051') {
-        // Khởi tạo kết nối insecure (không TLS) tới server Python
         this.pathClient = new mesProto.PathfindingService(
             address,
             grpc.credentials.createInsecure()
@@ -34,39 +34,28 @@ export class MesGrpcClient {
             address,
             grpc.credentials.createInsecure()
         );
+        this.dispatchClient = new mesProto.DispatchService(
+            address,
+            grpc.credentials.createInsecure()
+        );
     }
 
-    /**
-     * Gửi yêu cầu tính toán đường đi tới MES
-     * @param warehouseId ID của kho hàng
-     * @param start Tọa độ bắt đầu {x, y}
-     * @param end Tọa độ đích {x, y}
-     */
     public calculatePath(
-        warehouseId: string, 
-        start: { x: number; y: number }, 
+        warehouseId: string,
+        start: { x: number; y: number },
         end: { x: number; y: number }
     ): Promise<{ waypoints: any[]; success: boolean; message: string }> {
         return new Promise((resolve, reject) => {
-            const request = {
-                warehouse_id: warehouseId,
-                start: start,
-                end: end
-            };
-
-            // Gọi hàm CalculatePath đã định nghĩa trong proto
-            this.pathClient.CalculatePath(request, (error: any, response: any) => {
-                if (error) {
-                    return reject(error);
+            this.pathClient.CalculatePath(
+                { warehouse_id: warehouseId, start, end },
+                (error: any, response: any) => {
+                    if (error) return reject(error);
+                    resolve(response);
                 }
-                resolve(response);
-            });
+            );
         });
     }
 
-    /**
-     * Xin cấp phát slot cho kiện hàng từ MES
-     */
     public allocateSlot(
         warehouseId: string,
         itemId: string,
@@ -74,19 +63,40 @@ export class MesGrpcClient {
         width: number
     ): Promise<{ success: boolean; slot_id: string; message: string; error_code: string }> {
         return new Promise((resolve, reject) => {
-            const request = {
-                warehouse_id: warehouseId,
-                item_id: itemId,
-                length: length,
-                width: width
-            };
-
-            this.slotClient.AllocateSlot(request, (error: any, response: any) => {
-                if (error) {
-                    return reject(error);
+            this.slotClient.AllocateSlot(
+                { warehouse_id: warehouseId, item_id: itemId, length, width },
+                (error: any, response: any) => {
+                    if (error) return reject(error);
+                    resolve(response);
                 }
+            );
+        });
+    }
+
+    /**
+     * Gửi yêu cầu lập kế hoạch chạy (Execution Plan) cho AGV tới MES.
+     * MES sẽ chạy A* và trả về chuỗi Waypoints đầy đủ.
+     */
+    public dispatchAGV(params: {
+        warehouseId: string;
+        inboundOrderId: string;
+        agvPosition: { x: number; y: number };
+        pickupPoint: { x: number; y: number };
+        slotPosition: { x: number; y: number };
+    }): Promise<{ success: boolean; message: string; waypoints: any[] }> {
+        return new Promise((resolve, reject) => {
+            const request = {
+                warehouse_id: params.warehouseId,
+                inbound_order_id: params.inboundOrderId,
+                agv_position: params.agvPosition,
+                pickup_point: params.pickupPoint,
+                slot_position: params.slotPosition,
+            };
+            this.dispatchClient.DispatchAGV(request, (error: any, response: any) => {
+                if (error) return reject(error);
                 resolve(response);
             });
         });
     }
 }
+

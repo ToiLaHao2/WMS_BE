@@ -1,3 +1,4 @@
+import fetch from 'node-fetch';
 import { InboundOrderStatus } from './inbound.model';
 import type { CreateInboundOrderDTO, IInboundOrder } from './inbound.model';
 import type { InboundOrderRepository, InboundOrderItemRepository } from './repositories/inbound.repository';
@@ -5,6 +6,18 @@ import type { ProductRepository } from '../../master-data/src/repositories/produ
 import type { WarehouseSlotRepository } from '../../master-data/src/repositories/warehouse-slot.repository';
 import type { MesGrpcClient } from '@core/contracts/mes-grpc.client';
 import { SlotStatus } from '../../master-data/src/master-data.model';
+
+// Cổng và địa chỉ của Go AGV Control Service
+const AGV_SERVICE_URL = process.env.AGV_SERVICE_URL || 'http://localhost:8081';
+
+// Cổng WMS để Go báo ngược về
+const WMS_CALLBACK_URL = process.env.WMS_BASE_URL || 'http://localhost:3000';
+
+// Cửa kho mặc định (pickup point) — Điểm AGV tới gắp hàng
+const DEFAULT_PICKUP_POINT = { x: 0, y: 0 };
+
+// Vị trí mặc định của AGV khi idle
+const DEFAULT_AGV_POSITION = { x: 0, y: 0 };
 
 export class InboundService {
     private inboundOrderRepo: InboundOrderRepository;
@@ -34,7 +47,7 @@ export class InboundService {
     }
 
     /**
-     * Tạo lệnh nhập hàng và xin cấp phát slot qua MES
+     * Tạo lệnh nhập hàng: Xin slot MES, rồi xin Execution Plan và gửi sang Go
      */
     async createInboundOrder(dto: CreateInboundOrderDTO): Promise<IInboundOrder> {
         // 1. Tạo Inbound Order với trạng thái PENDING
@@ -48,41 +61,24 @@ export class InboundService {
 
         // 2. Xử lý từng item trong order
         for (const item of dto.items) {
-            // Lấy thông tin kích thước của product
             const product = await this.productRepo.findById(item.product_id);
             if (!product) {
-                console.error(`Product not found: ${item.product_id}`);
+                console.error(`[INBOUND] Product not found: ${item.product_id}`);
                 allAllocated = false;
                 continue;
             }
 
             try {
-                // GỌI SANG MES (gRPC) ĐỂ XIN CẤP PHÁT SLOT
-                const result = await this.mesGrpcClient.allocateSlot(
+                // === BƯỚC A: Xin cấp Slot từ MES ===
+                const slotResult = await this.mesGrpcClient.allocateSlot(
                     dto.warehouse_id,
                     item.product_id,
-                    Number(product.width), // Lưu ý: models.py nhận length và width. Trong TS ta có width, height. Ta map width->width, height->length
+                    Number(product.width),
                     Number(product.height)
                 );
 
-                if (result.success && result.slot_id) {
-                    // Đã có slot, lưu item với assigned_slot_id
-                    await this.inboundOrderItemRepo.createItem({
-                        inbound_order_id: order.id,
-                        product_id: item.product_id,
-                        assigned_slot_id: result.slot_id,
-                        quantity: item.quantity,
-                    });
-
-                    // Cập nhật trạng thái slot thành RESERVED để giữ chỗ
-                    await this.warehouseSlotRepo.updateSlot(result.slot_id, {
-                        status: SlotStatus.RESERVED
-                    });
-                    
-                    console.log(`[INBOUND] Cấp slot ${result.slot_id} thành công cho SP ${item.product_id}`);
-                } else {
-                    console.warn(`[INBOUND] MES từ chối cấp slot cho SP ${item.product_id}: ${result.message}`);
-                    // Vẫn lưu item nhưng không có slot
+                if (!slotResult.success || !slotResult.slot_id) {
+                    console.warn(`[INBOUND] Không cấp được slot: ${slotResult.message}`);
                     await this.inboundOrderItemRepo.createItem({
                         inbound_order_id: order.id,
                         product_id: item.product_id,
@@ -90,9 +86,53 @@ export class InboundService {
                         quantity: item.quantity,
                     });
                     allAllocated = false;
+                    continue;
                 }
+
+                console.log(`[INBOUND] Slot OK: ${slotResult.slot_id}`);
+
+                // Lưu item và chuyển Slot thành RESERVED
+                await this.inboundOrderItemRepo.createItem({
+                    inbound_order_id: order.id,
+                    product_id: item.product_id,
+                    assigned_slot_id: slotResult.slot_id,
+                    quantity: item.quantity,
+                });
+                await this.warehouseSlotRepo.updateSlot(slotResult.slot_id, {
+                    status: SlotStatus.RESERVED,
+                });
+
+                // === BƯỚC B: Lấy tọa độ Slot để gửi cho MES (Dispatch) ===
+                const slot = await this.warehouseSlotRepo.findById(slotResult.slot_id);
+                const slotPosition = slot
+                    ? { x: Math.round(Number((slot as any).x)), y: Math.round(Number((slot as any).y)) }
+                    : { x: 0, y: 0 };
+
+                // === BƯỚC C: Gọi MES xin Execution Plan ===
+                console.log(`[INBOUND] Xin Execution Plan từ MES...`);
+                const dispatchResult = await this.mesGrpcClient.dispatchAGV({
+                    warehouseId: dto.warehouse_id,
+                    inboundOrderId: order.id,
+                    agvPosition: DEFAULT_AGV_POSITION,
+                    pickupPoint: DEFAULT_PICKUP_POINT,
+                    slotPosition,
+                });
+
+                if (!dispatchResult.success) {
+                    console.warn(`[INBOUND] MES không tạo được Execution Plan: ${dispatchResult.message}`);
+                    continue;
+                }
+
+                console.log(`[INBOUND] Execution Plan: ${dispatchResult.waypoints.length} buoc. Gui sang Go...`);
+
+                // === BƯỚC D: Gửi Execution Plan sang Go AGV Control ===
+                // Fire-and-forget (không chặn API response)
+                this.sendPlanToGo(order.id, dispatchResult.waypoints).catch(err =>
+                    console.error(`[INBOUND] Lỗi gửi plan sang Go: ${err.message}`)
+                );
+
             } catch (error: any) {
-                console.error(`[INBOUND] Lỗi gọi gRPC tới MES: ${error.message}`);
+                console.error(`[INBOUND] Lỗi xử lý item: ${error.message}`);
                 await this.inboundOrderItemRepo.createItem({
                     inbound_order_id: order.id,
                     product_id: item.product_id,
@@ -108,10 +148,33 @@ export class InboundService {
         return this.inboundOrderRepo.updateOrderStatus(order.id, finalStatus);
     }
 
+    /**
+     * Gửi Execution Plan tới Go AGV Control Service
+     */
+    private async sendPlanToGo(orderId: string, waypoints: any[]): Promise<void> {
+        const body = {
+            agv_id: 'AGV-01', // TODO: Chọn xe động sau khi có AGV Manager
+            inbound_order_id: orderId,
+            wms_callback_url: WMS_CALLBACK_URL,
+            waypoints: waypoints.map((wp: any) => ({
+                position: { x: wp.position.x, y: wp.position.y },
+                action: wp.action,
+            })),
+        };
+
+        const response = await (fetch as any)(`${AGV_SERVICE_URL}/execute`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+
+        const result = await response.json();
+        console.log(`[INBOUND] Go AGV Service phan hoi:`, result);
+    }
+
     async getOrderById(id: string): Promise<any> {
         const order = await this.inboundOrderRepo.findById(id);
         if (!order) return null;
-        
         const items = await this.inboundOrderItemRepo.getItemsByOrderId(id);
         return { ...order, items };
     }
