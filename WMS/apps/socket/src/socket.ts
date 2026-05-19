@@ -3,6 +3,7 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import { container } from '@core/container';
 import * as jwt from 'jsonwebtoken';
 import { securityConfig } from '@core/config';
+import { Kafka } from 'kafkajs';
 
 const PORT = 3001;
 
@@ -50,6 +51,41 @@ export function startSocketServer(adapter: ReturnType<typeof createAdapter> | nu
             console.log(`🔌 Client disconnected: ${socket.id} (User: ${userId})`);
         });
     });
+
+    // --- KAFKA CONSUMER SETUP ---
+    const kafka = new Kafka({
+        clientId: 'wmss-socket-consumer',
+        brokers: [process.env.KAFKA_BROKER || 'localhost:9092']
+    });
+
+    const consumer = kafka.consumer({ groupId: 'agv-telemetry-group' });
+
+    async function startKafkaConsumer() {
+        try {
+            await consumer.connect();
+            await consumer.subscribe({ topic: 'agv-telemetry', fromBeginning: false });
+            console.log('✅ [Kafka] Consumer connected & listening to agv-telemetry');
+            
+            await consumer.run({
+                eachMessage: async ({ topic, partition, message }) => {
+                    if (message.value) {
+                        try {
+                            const data = JSON.parse(message.value.toString());
+                            // Broadcast tọa độ xe tới tất cả client Frontend
+                            io.emit('agv_moved', data);
+                        } catch (err) {
+                            console.error('Lỗi parse Kafka message:', err);
+                        }
+                    }
+                },
+            });
+        } catch (error) {
+            console.error('❌ [Kafka] Consumer error:', error);
+        }
+    }
+    
+    // Chạy ngầm Kafka Consumer
+    startKafkaConsumer();
 
     const mode = adapter ? 'Redis adapter' : 'in-memory (single-node)';
     if (httpServer) {

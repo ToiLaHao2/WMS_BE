@@ -182,4 +182,35 @@ export class InboundService {
     async getAllOrders(): Promise<IInboundOrder[]> {
         return this.inboundOrderRepo.getAllOrders();
     }
+
+    /**
+     * Nhận callback từ AGV Service khi xe đã cất hàng xong.
+     */
+    async completeInboundTask(orderId: string, agvId: string): Promise<any> {
+        console.log(`[INBOUND] AGV ${agvId} bao cao da hoan thanh InboundOrder: ${orderId}`);
+        
+        // 1. Cập nhật trạng thái Order thành COMPLETED
+        await this.inboundOrderRepo.updateOrderStatus(orderId, InboundOrderStatus.COMPLETED);
+
+        // 2. Lấy các items trong order để cập nhật vào Inventory
+        const items = await this.inboundOrderItemRepo.getItemsByOrderId(orderId);
+        
+        // Note: Trong thực tế sẽ cần InventoryRepository để tăng quantity.
+        // Tạm thời log ra để chứng minh luồng thông suốt.
+        for (const item of items) {
+            if (item.assigned_slot_id) {
+                console.log(`[INVENTORY] Ban can cong ${item.quantity} sp ${item.product_id} vao slot ${item.assigned_slot_id}`);
+                // await this.inventoryRepo.addInventory(...)
+                
+                // Cập nhật slot status thành OCCUPIED
+                await this.warehouseSlotRepo.updateSlot(item.assigned_slot_id, {
+                    status: SlotStatus.OCCUPIED
+                });
+            }
+        }
+        
+        // 3. TODO: Giải phóng AGV state thành IDLE (gọi qua Master Data hoặc AGV service)
+
+        return { success: true, message: 'Inbound order completed successfully' };
+    }
 }
