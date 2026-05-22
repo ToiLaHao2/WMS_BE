@@ -1402,6 +1402,49 @@
 				]
 			}
 		},
+		"/inbound/agv-complete": {
+			"post": {
+				"operationId": "CompleteInboundTask",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {}
+							}
+						}
+					}
+				},
+				"description": "Webhook/Callback nhận tín hiệu hoàn thành từ Go AGV Service.",
+				"tags": [
+					"Inbound"
+				],
+				"security": [],
+				"parameters": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"properties": {
+									"inbound_order_id": {
+										"type": "string"
+									},
+									"agv_id": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"inbound_order_id",
+									"agv_id"
+								],
+								"type": "object"
+							}
+						}
+					}
+				}
+			}
+		},
 		"/health": {
 			"get": {
 				"operationId": "GetHealth",

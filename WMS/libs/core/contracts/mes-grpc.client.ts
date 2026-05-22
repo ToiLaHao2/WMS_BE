@@ -3,7 +3,7 @@ import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
 
 // 1. Xác định đường dẫn tới file proto
-const PROTO_PATH = path.resolve(__dirname, './Warehouse_management_simulation_Contracts/mes.proto');
+const PROTO_PATH = path.resolve(__dirname, './WMS_Contracts/mes.proto');
 
 // 2. Cấu hình Load Proto
 const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
