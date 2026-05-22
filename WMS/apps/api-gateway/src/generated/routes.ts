@@ -1105,7 +1105,7 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsInboundController_completeInboundTask: Record<string, TsoaRoute.ParameterSchema> = {
-                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"inbound_order_id":{"dataType":"string","required":true},"agv_id":{"dataType":"string","required":true}}},
+                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"status":{"dataType":"string"},"inbound_order_id":{"dataType":"string","required":true},"agv_id":{"dataType":"string","required":true}}},
         };
         app.post('/inbound/agv-complete',
             ...(fetchMiddlewares<RequestHandler>(InboundController)),

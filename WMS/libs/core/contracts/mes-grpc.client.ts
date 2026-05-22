@@ -40,6 +40,11 @@ export class MesGrpcClient {
         );
     }
 
+    /** Tạo deadline gRPC (tránh treo vĩnh viễn nếu MES không respond) */
+    private getDeadline(timeoutMs: number = 10000): grpc.Deadline {
+        return new Date(Date.now() + timeoutMs);
+    }
+
     public calculatePath(
         warehouseId: string,
         start: { x: number; y: number },
@@ -48,6 +53,7 @@ export class MesGrpcClient {
         return new Promise((resolve, reject) => {
             this.pathClient.CalculatePath(
                 { warehouse_id: warehouseId, start, end },
+                { deadline: this.getDeadline() },
                 (error: any, response: any) => {
                     if (error) return reject(error);
                     resolve(response);
@@ -65,6 +71,7 @@ export class MesGrpcClient {
         return new Promise((resolve, reject) => {
             this.slotClient.AllocateSlot(
                 { warehouse_id: warehouseId, item_id: itemId, length, width },
+                { deadline: this.getDeadline() },
                 (error: any, response: any) => {
                     if (error) return reject(error);
                     resolve(response);
@@ -92,7 +99,7 @@ export class MesGrpcClient {
                 pickup_point: params.pickupPoint,
                 slot_position: params.slotPosition,
             };
-            this.dispatchClient.DispatchAGV(request, (error: any, response: any) => {
+            this.dispatchClient.DispatchAGV(request, { deadline: this.getDeadline() }, (error: any, response: any) => {
                 if (error) return reject(error);
                 resolve(response);
             });

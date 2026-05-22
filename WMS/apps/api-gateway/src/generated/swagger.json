@@ -1427,6 +1427,9 @@
 						"application/json": {
 							"schema": {
 								"properties": {
+									"status": {
+										"type": "string"
+									},
 									"inbound_order_id": {
 										"type": "string"
 									},

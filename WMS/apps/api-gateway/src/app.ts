@@ -83,7 +83,7 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 // === TSOA ERROR HANDLER ===
 app.use((err: any, req: Request, res: Response, next: NextFunction): void => {
     if (err instanceof ValidateError) {
-        console.warn(`Caught Validation Error for ${req.path}:`, err.fields);
+        console.warn(`[TSOA_VALIDATION_ERROR] Path: ${req.path} | Fields: ${JSON.stringify(err.fields)}`);
         res.status(422).json({
             message: "Validation Failed",
             details: err?.fields,

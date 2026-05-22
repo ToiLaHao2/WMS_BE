@@ -19,6 +19,13 @@ export function startSocketServer(adapter: ReturnType<typeof createAdapter> | nu
 
     // Authentication Middleware
     io.use((socket: Socket, next) => {
+        // Bỏ qua auth trong môi trường Development (simulation chưa có login flow)
+        if (process.env.NODE_ENV === 'development') {
+            (socket as any).userId = 'dev-simulator';
+            (socket as any).userRole = 'admin';
+            return next();
+        }
+
         const token = socket.handshake.auth.token || socket.handshake.headers['authorization']?.replace('Bearer ', '');
 
         if (!token) {

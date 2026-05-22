@@ -53,14 +53,24 @@ export class MasterDataService {
         // Check if idOrCode is a valid UUID format
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idOrCode);
         
-        if (isUuid) {
-            return this.warehouseRepo.findByIdOrThrow(idOrCode) as unknown as Promise<IWarehouse>;
-        }
-        
-        const warehouse = await this.warehouseRepo.findByCode(idOrCode);
+        const warehouse = isUuid 
+            ? await this.warehouseRepo.findByIdOrThrow(idOrCode) as unknown as IWarehouse
+            : await this.warehouseRepo.findByCode(idOrCode);
+
         if (!warehouse) {
             throw new NotFoundError(`Warehouse with code '${idOrCode}' not found`);
         }
+
+        // Tự động sync layout lên Redis (Self-healing cache)
+        if (warehouse.layout_data) {
+            const grid = typeof warehouse.layout_data === 'string' 
+                ? JSON.parse(warehouse.layout_data) 
+                : warehouse.layout_data;
+            cacheManager.set(`warehouse:${warehouse.id}:layout`, grid, 86400).catch(err =>
+                console.error(`❌ [Redis Auto-Sync] Lỗi auto-sync layout: ${err.message}`)
+            );
+        }
+
         return warehouse;
     }
 
@@ -174,7 +184,7 @@ export class MasterDataService {
     // ─────────────────────────────────────────────────────────
 
     async createWarehouse(data: CreateWarehouseDTO): Promise<IWarehouse> {
-        return transactionManager.runInTransaction(async (client) => {
+        const result = await transactionManager.runInTransaction(async (client) => {
             const cols = data.width;
             const rows = data.height;
 
@@ -245,10 +255,9 @@ export class MasterDataService {
                 console.log(`🤖 Spawned ${agvToCreate} AGVs for warehouse ${warehouse.code}`);
             }
 
-            // ── 6. Cache to Redis ────────────────────────────────
+            // ── 6. Cache to Redis (chỉ layout + code, KHÔNG sync slot ở đây) ──
             if (cacheManager) {
                 await cacheManager.set(`warehouse:${wId}:layout`, grid, 86400);
-                // Index the code for quick existence check (Facebook-style)
                 await cacheManager.set(`wms:code:${warehouse.code}`, 1, 86400);
             }
 
@@ -256,6 +265,12 @@ export class MasterDataService {
 
             return warehouse;
         });
+
+        // ── 7. Sync slots SAU KHI transaction đã commit thành công ──
+        // (Phải nằm ngoài runInTransaction để findByWarehouseId thấy data đã commit)
+        await this.syncSlotsToRedis(result.id);
+
+        return result;
     }
 
     async updateWarehouse(id: string, data: UpdateWarehouseDTO): Promise<IWarehouse> {
@@ -277,7 +292,14 @@ export class MasterDataService {
     async getSlotsByWarehouseId(warehouseIdOrCode: string): Promise<IWarehouseSlot[]> {
         // Resolve warehouse first to get the correct UUID
         const warehouse = await this.getWarehouseByIdOrCode(warehouseIdOrCode);
-        return this.warehouseSlotRepo.findByWarehouseId(warehouse.id);
+        const slots = await this.warehouseSlotRepo.findByWarehouseId(warehouse.id);
+        
+        // Tự động sync/refresh cache Redis khi được truy vấn (self-healing cache)
+        this.syncSlotsToRedis(warehouse.id).catch(err => 
+            console.error(`❌ [Redis Auto-Sync] Lỗi auto-sync slots: ${err.message}`)
+        );
+
+        return slots;
     }
 
     async getSlotById(id: string): Promise<IWarehouseSlot> {
@@ -324,5 +346,54 @@ export class MasterDataService {
 
     async deleteProduct(id: string): Promise<boolean> {
         return this.productRepo.delete(id);
+    }
+
+    // ============================================================
+    // Redis Slot Sync (WMS → Redis → MES)
+    // ============================================================
+
+    /**
+     * Đẩy danh sách slot lên Redis cho MES (Python) đọc.
+     * MES dùng key: warehouse:{warehouse_id}:slots
+     * Format phải khớp với SlotConfig model bên MES:
+     *   { slot_id, max_length, max_width, is_occupied, position: [x, y] }
+     */
+    async syncSlotsToRedis(warehouseId: string, slotsInput?: CreateWarehouseSlotDTO[]): Promise<void> {
+        try {
+            let slotsForMES: any[];
+
+            if (slotsInput) {
+                // Khi gọi ngay lúc tạo warehouse (chưa có id từ DB, dùng slot_code thay)
+                // Cần query lại từ DB để lấy UUID thật của slot
+                const dbSlots = await this.warehouseSlotRepo.findByWarehouseId(warehouseId);
+                slotsForMES = dbSlots
+                    .filter((s: any) => s.slot_type === 'STORAGE')
+                    .map((s: any) => ({
+                        slot_id: s.id,
+                        max_length: Number(s.width),
+                        max_width: Number(s.height),
+                        is_occupied: s.status !== 'AVAILABLE',
+                        position: [Number(s.x), Number(s.y)],
+                    }));
+            } else {
+                // Khi gọi lại (re-sync) sau khi slot đổi trạng thái
+                const dbSlots = await this.warehouseSlotRepo.findByWarehouseId(warehouseId);
+                slotsForMES = dbSlots
+                    .filter((s: any) => s.slot_type === 'STORAGE')
+                    .map((s: any) => ({
+                        slot_id: s.id,
+                        max_length: Number(s.width),
+                        max_width: Number(s.height),
+                        is_occupied: s.status !== 'AVAILABLE',
+                        position: [Number(s.x), Number(s.y)],
+                    }));
+            }
+
+            const cacheKey = `warehouse:${warehouseId}:slots`;
+            await cacheManager.set(cacheKey, slotsForMES, 86400); // TTL 24h
+            console.log(`📦 [Redis Sync] Đã đẩy ${slotsForMES.length} STORAGE slots lên Redis cho kho ${warehouseId}`);
+        } catch (error: any) {
+            console.error(`❌ [Redis Sync] Lỗi sync slots: ${error.message}`);
+        }
     }
 }
