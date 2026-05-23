@@ -61,7 +61,7 @@ export default async function processInboundOrder(job: Job) {
 
     const sendPlanToGo = async (orderId: string, agvId: string, waypoints: any[]) => {
         const agvGrpcClient = container.resolve('agvGrpcClient');
-        const wmsCallbackUrl = process.env.WMS_CALLBACK_URL || 'http://host.docker.internal:3000/api/inbound/agv-complete';
+        const wmsCallbackUrl = process.env.WMS_CALLBACK_URL || 'http://host.docker.internal:3000';
         
         await agvGrpcClient.executePlan(
             agvId,

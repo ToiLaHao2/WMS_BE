@@ -68,26 +68,32 @@ export function startSocketServer(adapter: ReturnType<typeof createAdapter> | nu
     const consumer = kafka.consumer({ groupId: 'agv-telemetry-group' });
 
     async function startKafkaConsumer() {
-        try {
-            await consumer.connect();
-            await consumer.subscribe({ topic: 'agv-telemetry', fromBeginning: false });
-            console.log('✅ [Kafka] Consumer connected & listening to agv-telemetry');
-            
-            await consumer.run({
-                eachMessage: async ({ topic, partition, message }) => {
-                    if (message.value) {
-                        try {
-                            const data = JSON.parse(message.value.toString());
-                            // Broadcast tọa độ xe tới tất cả client Frontend
-                            io.emit('agv_moved', data);
-                        } catch (err) {
-                            console.error('Lỗi parse Kafka message:', err);
+        let connected = false;
+        while (!connected) {
+            try {
+                await consumer.connect();
+                await consumer.subscribe({ topic: 'agv-telemetry', fromBeginning: false });
+                console.log('✅ [Kafka] Consumer connected & listening to agv-telemetry');
+                connected = true;
+                
+                await consumer.run({
+                    eachMessage: async ({ topic, partition, message }) => {
+                        if (message.value) {
+                            try {
+                                const data = JSON.parse(message.value.toString());
+                                // Broadcast tọa độ xe tới tất cả client Frontend
+                                io.emit('agv_moved', data);
+                            } catch (err) {
+                                console.error('Lỗi parse Kafka message:', err);
+                            }
                         }
-                    }
-                },
-            });
-        } catch (error) {
-            console.error('❌ [Kafka] Consumer error:', error);
+                    },
+                });
+            } catch (error) {
+                console.error('❌ [Kafka] Consumer error:', (error as Error).message);
+                console.log('🔄 [Kafka] Retrying in 5 seconds...');
+                await new Promise(resolve => setTimeout(resolve, 5000));
+            }
         }
     }
     
