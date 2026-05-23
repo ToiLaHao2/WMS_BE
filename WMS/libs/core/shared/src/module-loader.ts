@@ -8,7 +8,7 @@ import type { IAppModule } from './app-module';
  * ModuleLoader — Auto-discover va load cac AppModule tu libs/modules/
  * Convention: moi module PHAI co file src/index.ts (hoac .js) export mot IAppModule.
  */
-export function loadModules(app: Application, container: AwilixContainer): void {
+export function loadModules(app: Application | null, container: AwilixContainer): void {
     const modulesDir = path.resolve(__dirname, '../../../modules');
 
     if (!fs.existsSync(modulesDir)) {
@@ -45,7 +45,7 @@ export function loadModules(app: Application, container: AwilixContainer): void 
                 continue;
             }
 
-            mod.register(app, container);
+            mod.register(app as Application, container);
         } catch (err) {
             console.error(`❌ Failed to load module [${folder}]:`, (err as Error).message);
         }

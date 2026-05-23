@@ -24,6 +24,7 @@ export class InboundService {
     private warehouseSlotRepo: WarehouseSlotRepository;
     private agvRepo: AGVRepository;
     private mesGrpcClient: MesGrpcClient;
+    private systemQueue: any; // BullMQ Queue
 
     constructor({
         inboundOrderRepository,
@@ -32,6 +33,7 @@ export class InboundService {
         warehouseSlotRepository,
         agvRepository,
         mesGrpcClient,
+        systemQueue,
     }: {
         inboundOrderRepository: InboundOrderRepository;
         inboundOrderItemRepository: InboundOrderItemRepository;
@@ -39,6 +41,7 @@ export class InboundService {
         warehouseSlotRepository: WarehouseSlotRepository;
         agvRepository: AGVRepository;
         mesGrpcClient: MesGrpcClient;
+        systemQueue: any;
     }) {
         this.inboundOrderRepo = inboundOrderRepository;
         this.inboundOrderItemRepo = inboundOrderItemRepository;
@@ -46,12 +49,13 @@ export class InboundService {
         this.warehouseSlotRepo = warehouseSlotRepository;
         this.agvRepo = agvRepository;
         this.mesGrpcClient = mesGrpcClient;
+        this.systemQueue = systemQueue;
     }
 
     /**
      * Tạo lệnh nhập hàng: Xin slot MES, rồi xin Execution Plan và gửi sang Go
      */
-    async createInboundOrder(dto: CreateInboundOrderDTO): Promise<IInboundOrder> {
+    async createInboundOrder(dto: CreateInboundOrderDTO): Promise<any> {
         // 1. Tạo Inbound Order với trạng thái PENDING
         const order = await this.inboundOrderRepo.createOrder({
             warehouse_id: dto.warehouse_id,
@@ -59,119 +63,17 @@ export class InboundService {
             status: InboundOrderStatus.PENDING,
         });
 
-        let allAllocated = true;
-
-        // 2. Xử lý từng item trong order
-        for (const item of dto.items) {
-            // Hỗ trợ tìm product bằng UUID hoặc bằng code
-            let product = null;
-            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-            if (uuidRegex.test(item.product_id)) {
-                product = await this.productRepo.findById(item.product_id);
-            }
-            if (!product) {
-                product = await this.productRepo.findByCode(item.product_id);
-            }
-            if (!product) {
-                console.error(`[INBOUND] Product not found: ${item.product_id}`);
-                allAllocated = false;
-                continue;
-            }
-            const productId = (product as any).id;
-
-            try {
-                // === BƯỚC A: Xin cấp Slot từ MES ===
-                const slotResult = await this.mesGrpcClient.allocateSlot(
-                    dto.warehouse_id,
-                    item.product_id,
-                    Number(product.width),
-                    Number(product.height)
-                );
-
-                if (!slotResult.success || !slotResult.slot_id) {
-                    console.warn(`[INBOUND] Không cấp được slot: ${slotResult.message}`);
-                    await this.inboundOrderItemRepo.createItem({
-                        inbound_order_id: order.id,
-                        product_id: productId,
-                        assigned_slot_id: null,
-                        quantity: item.quantity,
-                    });
-                    allAllocated = false;
-                    continue;
-                }
-
-                console.log(`[INBOUND] Slot OK: ${slotResult.slot_id}`);
-
-                // Lưu item và chuyển Slot thành RESERVED
-                await this.inboundOrderItemRepo.createItem({
-                    inbound_order_id: order.id,
-                    product_id: productId,
-                    assigned_slot_id: slotResult.slot_id,
-                    quantity: item.quantity,
-                });
-                await this.warehouseSlotRepo.updateSlot(slotResult.slot_id, {
-                    status: SlotStatus.RESERVED,
-                });
-
-                // Re-sync slot data lên Redis cho MES cập nhật trạng thái mới
-                this.syncSlotsToRedis(dto.warehouse_id).catch(err =>
-                    console.error(`[INBOUND] Lỗi sync Redis: ${err.message}`)
-                );
-
-                // === BƯỚC B: Lấy tọa độ Slot để gửi cho MES (Dispatch) ===
-                const slot = await this.warehouseSlotRepo.findById(slotResult.slot_id);
-                const slotPosition = slot
-                    ? { x: Math.round(Number((slot as any).x)), y: Math.round(Number((slot as any).y)) }
-                    : { x: 0, y: 0 };
-
-                // === BƯỚC C: Lấy tọa độ thực tế của Pickup & AGV từ DB ===
-                const { pickupPoint, agvPosition } = await this.getPickupAndAGVPosition(dto.warehouse_id);
-                console.log(`[INBOUND] Pickup: (${pickupPoint.x},${pickupPoint.y}) | AGV: (${agvPosition.x},${agvPosition.y}) | Slot: (${slotPosition.x},${slotPosition.y})`);
-
-                // === BƯỚC D: Gọi MES xin Execution Plan ===
-                console.log(`[INBOUND] Xin Execution Plan từ MES...`);
-                const dispatchResult = await this.mesGrpcClient.dispatchAGV({
-                    warehouseId: dto.warehouse_id,
-                    inboundOrderId: order.id,
-                    agvPosition,
-                    pickupPoint,
-                    slotPosition,
-                });
-
-                if (!dispatchResult.success) {
-                    console.warn(`[INBOUND] MES không tạo được Execution Plan: ${dispatchResult.message}`);
-                    continue;
-                }
-
-                console.log(`[INBOUND] Execution Plan: ${dispatchResult.waypoints.length} buoc. Gui sang Go...`);
-
-                // === Lấy AGV ID thực tế từ DB để gửi cho Go thay vì hardcode ===
-                const agvs = await this.agvRepo.findByWarehouse(dto.warehouse_id);
-                // Giả định chọn xe đầu tiên đang IDLE. Nếu không có, tạm lấy xe đầu tiên.
-                const idleAgv = agvs.find(a => a.status === 'IDLE') || agvs[0];
-                const targetAgvId = idleAgv ? idleAgv.id : 'AGV-01';
-
-                // === BƯỚC E: Gửi Execution Plan sang Go AGV Control ===
-                // Fire-and-forget (không chặn API response)
-                this.sendPlanToGo(order.id, targetAgvId, dispatchResult.waypoints).catch(err =>
-                    console.error(`[INBOUND] Lỗi gửi plan sang Go: ${err.message}`)
-                );
-
-            } catch (error: any) {
-                console.error(`[INBOUND] Lỗi xử lý item: ${error.message}`);
-                await this.inboundOrderItemRepo.createItem({
-                    inbound_order_id: order.id,
-                    product_id: productId,
-                    assigned_slot_id: null,
-                    quantity: item.quantity,
-                });
-                allAllocated = false;
-            }
+        // 2. Đẩy job vào Queue để Worker xử lý ngầm (Tránh Race Condition và timeout API)
+        if (this.systemQueue) {
+            await this.systemQueue.add('inbound-process', { orderId: order.id, dto });
+            console.log(`[INBOUND] Đã đưa Inbound Order ${order.id} vào system-queue.`);
+        } else {
+            console.warn(`[INBOUND] systemQueue không tồn tại! Order ${order.id} sẽ bị treo ở trạng thái PENDING.`);
         }
 
-        // 3. Cập nhật trạng thái Order
-        const finalStatus = allAllocated ? InboundOrderStatus.ALLOCATED : InboundOrderStatus.FAILED;
-        return this.inboundOrderRepo.updateOrderStatus(order.id, finalStatus);
+        // 3. Trả về ngay lập tức để giải phóng API
+        // Mảng allocated_slots trống vì chưa có slot nào được cấp ở thời điểm này (sẽ cập nhật qua Socket)
+        return { order, allocated_slots: [] };
     }
 
     /**
@@ -247,6 +149,31 @@ export class InboundService {
         return { pickupPoint, agvPosition };
     }
 
+    /**
+     * Lấy AGV rảnh từ Redis (fallback DB)
+     */
+    private async getAvailableAgv(warehouseId: string): Promise<any> {
+        const agvs = await this.agvRepo.findByWarehouse(warehouseId);
+        
+        for (const agv of agvs) {
+            const cacheKey = `agv_status:${agv.id}`;
+            let status = await cacheManager.get(cacheKey);
+            
+            // Nếu Redis chưa có, lấy từ DB và cache lại
+            if (!status) {
+                status = agv.status;
+                await cacheManager.set(cacheKey, status, 86400); // Cache 1 ngày
+            }
+            
+            if (status === 'IDLE') {
+                return agv;
+            }
+        }
+        
+        // Nếu không có xe nào rảnh, tạm trả về undefined để xử lý chờ
+        return undefined;
+    }
+
     async getAllOrders(): Promise<IInboundOrder[]> {
         return this.inboundOrderRepo.getAllOrders();
     }
@@ -284,6 +211,12 @@ export class InboundService {
                 console.error(`[INBOUND] Lỗi sync Redis sau complete: ${err.message}`)
             );
         }
+
+        // 4. Giải phóng AGV (Cập nhật lại thành IDLE)
+        await cacheManager.set(`agv_status:${agvId}`, 'IDLE', 86400);
+        this.agvRepo.updateStatus(agvId, 'IDLE').catch(err =>
+            console.error(`[INBOUND] Lỗi update DB AGV IDLE: ${err.message}`)
+        );
 
         return { success: true, message: 'Inbound order completed successfully' };
     }

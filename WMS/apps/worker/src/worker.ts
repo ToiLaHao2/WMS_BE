@@ -1,6 +1,11 @@
 import { Worker, Job } from 'bullmq';
 import { container } from '@core/container';
 
+import { loadModules } from '@core/shared';
+
+// Load modules into container
+loadModules(null, container);
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const processors: Record<string, (job: Job) => Promise<unknown>> = require('./processors');
 

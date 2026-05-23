@@ -37,6 +37,8 @@ export interface IInboundOrderItem {
 export interface InboundOrderItemDTO {
     product_id: string;
     quantity: number;
+    pickup_x?: number;
+    pickup_y?: number;
 }
 
 export interface CreateInboundOrderDTO {

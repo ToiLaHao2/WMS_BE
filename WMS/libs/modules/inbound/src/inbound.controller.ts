@@ -16,7 +16,7 @@ export class InboundController extends Controller {
      * Tạo một lệnh nhập hàng mới. Hệ thống sẽ tự động gọi MES xin cấp slot.
      */
     @Post('')
-    public async createInboundOrder(@Body() body: CreateInboundOrderDTO): Promise<IInboundOrder> {
+    public async createInboundOrder(@Body() body: CreateInboundOrderDTO): Promise<any> {
         this.setStatus(201);
         return this.inboundService.createInboundOrder(body);
     }

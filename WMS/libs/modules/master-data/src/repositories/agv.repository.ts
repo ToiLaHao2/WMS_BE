@@ -4,6 +4,7 @@ import { PoolClient } from 'pg';
 
 export class AGVRepository extends BasePostgresRepository {
     public static readonly injectionKey = 'agvRepository';
+    db: any;
     constructor({ db }: { db: IDatabaseAdapter }) {
         super(db, 'agv');
     }
@@ -33,5 +34,10 @@ export class AGVRepository extends BasePostgresRepository {
     async findByWarehouse(warehouseId: string): Promise<IAGV[]> {
         const results = await this.findWhere({ warehouse_id: warehouseId });
         return results as unknown as IAGV[];
+    }
+
+    async updateStatus(id: string, status: string): Promise<void> {
+        const query = `UPDATE agv SET status = $1 WHERE id = $2`;
+        await this.pool.query(query, [status, id]);
     }
 }

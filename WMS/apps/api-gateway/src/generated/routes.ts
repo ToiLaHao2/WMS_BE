@@ -200,6 +200,27 @@ const models: TsoaRoute.Models = {
         "additionalProperties": false,
     },
     // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "InboundOrderItemDTO": {
+        "dataType": "refObject",
+        "properties": {
+            "product_id": {"dataType":"string","required":true},
+            "quantity": {"dataType":"double","required":true},
+            "pickup_x": {"dataType":"double"},
+            "pickup_y": {"dataType":"double"},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "CreateInboundOrderDTO": {
+        "dataType": "refObject",
+        "properties": {
+            "warehouse_id": {"dataType":"string","required":true},
+            "code": {"dataType":"string","required":true},
+            "items": {"dataType":"array","array":{"dataType":"refObject","ref":"InboundOrderItemDTO"},"required":true},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
     "InboundOrderStatus": {
         "dataType": "refEnum",
         "enums": ["PENDING","ALLOCATED","PROCESSING","COMPLETED","FAILED"],
@@ -214,25 +235,6 @@ const models: TsoaRoute.Models = {
             "status": {"ref":"InboundOrderStatus","required":true},
             "created_at": {"dataType":"datetime","required":true},
             "updated_at": {"dataType":"datetime","required":true},
-        },
-        "additionalProperties": false,
-    },
-    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    "InboundOrderItemDTO": {
-        "dataType": "refObject",
-        "properties": {
-            "product_id": {"dataType":"string","required":true},
-            "quantity": {"dataType":"double","required":true},
-        },
-        "additionalProperties": false,
-    },
-    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    "CreateInboundOrderDTO": {
-        "dataType": "refObject",
-        "properties": {
-            "warehouse_id": {"dataType":"string","required":true},
-            "code": {"dataType":"string","required":true},
-            "items": {"dataType":"array","array":{"dataType":"refObject","ref":"InboundOrderItemDTO"},"required":true},
         },
         "additionalProperties": false,
     },

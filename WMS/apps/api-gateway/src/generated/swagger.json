@@ -463,6 +463,54 @@
 				"type": "object",
 				"additionalProperties": false
 			},
+			"InboundOrderItemDTO": {
+				"properties": {
+					"product_id": {
+						"type": "string"
+					},
+					"quantity": {
+						"type": "number",
+						"format": "double"
+					},
+					"pickup_x": {
+						"type": "number",
+						"format": "double"
+					},
+					"pickup_y": {
+						"type": "number",
+						"format": "double"
+					}
+				},
+				"required": [
+					"product_id",
+					"quantity"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"CreateInboundOrderDTO": {
+				"properties": {
+					"warehouse_id": {
+						"type": "string"
+					},
+					"code": {
+						"type": "string"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/InboundOrderItemDTO"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"warehouse_id",
+					"code",
+					"items"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
 			"InboundOrderStatus": {
 				"enum": [
 					"PENDING",
@@ -503,46 +551,6 @@
 					"status",
 					"created_at",
 					"updated_at"
-				],
-				"type": "object",
-				"additionalProperties": false
-			},
-			"InboundOrderItemDTO": {
-				"properties": {
-					"product_id": {
-						"type": "string"
-					},
-					"quantity": {
-						"type": "number",
-						"format": "double"
-					}
-				},
-				"required": [
-					"product_id",
-					"quantity"
-				],
-				"type": "object",
-				"additionalProperties": false
-			},
-			"CreateInboundOrderDTO": {
-				"properties": {
-					"warehouse_id": {
-						"type": "string"
-					},
-					"code": {
-						"type": "string"
-					},
-					"items": {
-						"items": {
-							"$ref": "#/components/schemas/InboundOrderItemDTO"
-						},
-						"type": "array"
-					}
-				},
-				"required": [
-					"warehouse_id",
-					"code",
-					"items"
 				],
 				"type": "object",
 				"additionalProperties": false
@@ -1323,9 +1331,7 @@
 						"description": "Ok",
 						"content": {
 							"application/json": {
-								"schema": {
-									"$ref": "#/components/schemas/IInboundOrder"
-								}
+								"schema": {}
 							}
 						}
 					}

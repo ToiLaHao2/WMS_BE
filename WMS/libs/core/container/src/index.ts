@@ -7,6 +7,8 @@ import { cloudinaryAdapter, r2Adapter, IStorageProvider } from '@core/storage';
 import { logger } from '@core/logger';
 import { eventBus } from '@core/shared';
 import { MesGrpcClient } from '@core/contracts/mes-grpc.client';
+import { AgvGrpcClient } from '@core/contracts/agv-grpc.client';
+import { Queue } from 'bullmq';
 
 // 1. Initialize PostgreSQL
 postgresAdapter.init({
@@ -55,6 +57,9 @@ export interface ICradle {
     storage: IStorageProvider;
     logger: typeof logger;
     eventBus: typeof eventBus;
+    mesGrpcClient: MesGrpcClient;
+    agvGrpcClient: AgvGrpcClient;
+    systemQueue: Queue;
     // Allow dynamic registration for business services later
     [key: string]: any;
 }
@@ -66,6 +71,15 @@ export const container = createContainer<ICradle>({
     injectionMode: InjectionMode.PROXY,
 });
 
+// Define systemQueue
+let systemQueue: Queue | null = null;
+if (postgresAdapter) {
+    const redisClient = cacheManager.getRedisClient();
+    if (redisClient) {
+        systemQueue = new Queue('system-queue', { connection: redisClient as any });
+    }
+}
+
 // Register Core Infrastructure (Singletons)
 container.register({
     db: asValue(postgresAdapter),
@@ -75,6 +89,9 @@ container.register({
     logger: asValue(logger),
     eventBus: asValue(eventBus),
     mesGrpcClient: asValue(new MesGrpcClient()),
+    agvGrpcClient: asValue(new AgvGrpcClient()),
+    // Queue setup
+    systemQueue: asValue(systemQueue as Queue),
 });
 
 console.log('📦 [DI] Core Container initialized with Awilix.');
