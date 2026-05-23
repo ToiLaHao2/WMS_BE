@@ -52,7 +52,7 @@ export class AgvGrpcClient {
     }
 
     private mapAction(action: number): string {
-        const actionMap: Record<number, string> = { 0: 'MOVE', 1: 'PICK_UP', 2: 'DROP_OFF' };
+        const actionMap: Record<number, string> = { 0: 'MOVE', 1: 'PICK_UP', 2: 'DROP_OFF', 3: 'RETURN' };
         return actionMap[action] || 'MOVE';
     }
 }
