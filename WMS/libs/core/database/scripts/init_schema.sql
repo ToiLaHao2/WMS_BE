@@ -127,3 +127,15 @@ CREATE TABLE IF NOT EXISTS "outbound_order_item" (
     "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ====================================================================
+-- 5. SEED DATA (DỮ LIỆU MẪU)
+-- ====================================================================
+
+INSERT INTO "product" ("id", "code", "name", "description", "width", "height", "weight") VALUES
+('11111111-1111-1111-1111-111111111111', 'PRD-IPHONE15', 'iPhone 15 Pro Max', 'Apple Smartphone 256GB', 0.2, 0.1, 0.5),
+('22222222-2222-2222-2222-222222222222', 'PRD-MACBOOK', 'MacBook Pro M3', 'Apple Laptop 14-inch', 0.4, 0.3, 1.5),
+('33333333-3333-3333-3333-333333333333', 'PRD-AIRPODS', 'AirPods Pro 2', 'Wireless Earbuds', 0.1, 0.1, 0.2),
+('44444444-4444-4444-4444-444444444444', 'PRD-IPAD', 'iPad Air 5', 'Apple Tablet 64GB', 0.3, 0.2, 0.8),
+('55555555-5555-5555-5555-555555555555', 'PRD-WATCH', 'Apple Watch Series 9', 'Smartwatch 45mm', 0.1, 0.1, 0.3)
+ON CONFLICT ("code") DO NOTHING;
