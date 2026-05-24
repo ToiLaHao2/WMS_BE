@@ -43,5 +43,5 @@ RUN npx tsoa spec && npx tsoa routes
 # Expose: API Gateway (3000) + Socket (3001)
 EXPOSE 3000 3001
 
-# Chạy ở chế độ one port combo (API + Socket chung process) hoặc multiport
-CMD ["npx", "tsx", "apps/api-gateway/src/combo.ts"]
+# Chạy ở chế độ multiport
+CMD ["npm", "run", "start:multiport"]

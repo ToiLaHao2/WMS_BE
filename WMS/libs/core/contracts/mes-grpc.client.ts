@@ -25,7 +25,7 @@ export class MesGrpcClient {
     private slotClient: any;
     private dispatchClient: any;
 
-    constructor(address: string = 'localhost:50051') {
+    constructor(address: string = process.env.MES_GRPC_URL || 'localhost:50051') {
         this.pathClient = new mesProto.PathfindingService(
             address,
             grpc.credentials.createInsecure()
