@@ -922,38 +922,6 @@
 				]
 			}
 		},
-		"/master-data/warehouses/{warehouseId}/agvs": {
-			"get": {
-				"operationId": "GetAGVsByWarehouseId",
-				"responses": {
-					"200": {
-						"description": "Ok",
-						"content": {
-							"application/json": {
-								"schema": {
-									"items": {},
-									"type": "array"
-								}
-							}
-						}
-					}
-				},
-				"tags": [
-					"Master Data"
-				],
-				"security": [],
-				"parameters": [
-					{
-						"in": "path",
-						"name": "warehouseId",
-						"required": true,
-						"schema": {
-							"type": "string"
-						}
-					}
-				]
-			}
-		},
 		"/master-data/warehouses/{idOrCode}/slots": {
 			"get": {
 				"operationId": "GetSlotsByWarehouseId",
@@ -1452,6 +1420,38 @@
 						}
 					}
 				}
+			}
+		},
+		"/agv/warehouses/{warehouseId}/agvs": {
+			"get": {
+				"operationId": "GetAGVsByWarehouseId",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {},
+									"type": "array"
+								}
+							}
+						}
+					}
+				},
+				"tags": [
+					"AGV"
+				],
+				"security": [],
+				"parameters": [
+					{
+						"in": "path",
+						"name": "warehouseId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
 			}
 		},
 		"/health": {

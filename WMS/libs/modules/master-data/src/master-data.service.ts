@@ -1,7 +1,7 @@
 import type { WarehouseRepository } from './repositories/warehouse.repository';
 import type { WarehouseSlotRepository } from './repositories/warehouse-slot.repository';
 import type { ProductRepository } from './repositories/product.repository';
-import type { AGVRepository } from './repositories/agv.repository';
+
 import type {
     IWarehouse, IWarehouseSlot, IProduct, IAGV,
     CreateWarehouseDTO, UpdateWarehouseDTO,
@@ -22,23 +22,21 @@ export class MasterDataService {
     private warehouseRepo: WarehouseRepository;
     private warehouseSlotRepo: WarehouseSlotRepository;
     private productRepo: ProductRepository;
-    private agvRepo: AGVRepository;
-
     constructor({
         warehouseRepository,
         warehouseSlotRepository,
         productRepository,
-        agvRepository,
+
     }: {
         warehouseRepository: WarehouseRepository;
         warehouseSlotRepository: WarehouseSlotRepository;
         productRepository: ProductRepository;
-        agvRepository: AGVRepository;
+
     }) {
         this.warehouseRepo = warehouseRepository;
         this.warehouseSlotRepo = warehouseSlotRepository;
         this.productRepo = productRepository;
-        this.agvRepo = agvRepository;
+
     }
 
     // ============================================================
@@ -99,9 +97,12 @@ export class MasterDataService {
     private readonly GRID_CHARGING = 3;
     private readonly GRID_INBOUND = 4;
     private readonly GRID_OUTBOUND = 5;
+    private readonly GRID_EMPTY = 6;
+    private readonly GRID_AISLE_H = 7;
+    private readonly GRID_AISLE_V = 8;
 
     private generateBaseGrid(rows: number, cols: number): number[][] {
-        const grid = Array.from({ length: rows }, () => Array(cols).fill(this.GRID_AISLE));
+        const grid = Array.from({ length: rows }, () => Array(cols).fill(this.GRID_EMPTY));
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
                 if (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) {
@@ -181,6 +182,71 @@ export class MasterDataService {
             grid[dockRow][c] = this.GRID_OUTBOUND;
         }
     }
+
+    private applyNavMesh(grid: number[][], rows: number, cols: number): void {
+        const isRackCol = (col: number) => {
+            for (let r = 0; r < rows; r++) if (grid[r][col] === this.GRID_STORAGE) return true;
+            return false;
+        };
+        const isRackRow = (row: number) => {
+            for (let c = 0; c < cols; c++) if (grid[row][c] === this.GRID_STORAGE) return true;
+            return false;
+        };
+
+        let minRackR = rows, maxRackR = 0, minRackC = cols, maxRackC = 0;
+        let chargeRow = -1;
+        const dockCols = new Set<number>();
+        const chargeCols = new Set<number>();
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                if (grid[r][c] === this.GRID_STORAGE) {
+                    if (r < minRackR) minRackR = r;
+                    if (r > maxRackR) maxRackR = r;
+                    if (c < minRackC) minRackC = c;
+                    if (c > maxRackC) maxRackC = c;
+                } else if (grid[r][c] === this.GRID_CHARGING) {
+                    chargeRow = r;
+                    chargeCols.add(c);
+                } else if (grid[r][c] === this.GRID_INBOUND || grid[r][c] === this.GRID_OUTBOUND) {
+                    dockCols.add(c);
+                }
+            }
+        }
+
+        const horizontalPathRows = new Set<number>();
+        horizontalPathRows.add(1); // Top Highway
+        horizontalPathRows.add(maxRackR + 1); // Bottom Highway
+        for (let r = minRackR; r <= maxRackR; r++) {
+            if (!isRackRow(r)) horizontalPathRows.add(r); // Intermediate cross-aisles
+        }
+
+        const verticalPathCols = new Set<number>();
+        for (let c = minRackC - 1; c <= maxRackC + 1; c++) {
+            if (!isRackCol(c)) verticalPathCols.add(c); // Main vertical aisles
+        }
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                if (grid[r][c] === this.GRID_EMPTY) {
+                    const isHPath = horizontalPathRows.has(r) && c >= minRackC - 1 && c <= maxRackC + 1;
+                    
+                    let isVPath = false;
+                    if (verticalPathCols.has(c) && r >= 1 && r <= maxRackR + 1) isVPath = true;
+                    if (dockCols.has(c) && r >= maxRackR + 1 && r < rows - 1) isVPath = true;
+                    if (chargeCols.has(c) && r >= maxRackR + 1 && r < chargeRow) isVPath = true;
+
+                    if (isHPath && isVPath) {
+                        grid[r][c] = this.GRID_AISLE;
+                    } else if (isHPath) {
+                        grid[r][c] = this.GRID_AISLE_H;
+                    } else if (isVPath) {
+                        grid[r][c] = this.GRID_AISLE_V;
+                    }
+                }
+            }
+        }
+    }
     // ─────────────────────────────────────────────────────────
 
     async createWarehouse(data: CreateWarehouseDTO): Promise<IWarehouse> {
@@ -193,6 +259,7 @@ export class MasterDataService {
             this.applyStorageLayout(grid, data.layout_type || 'STANDARD', rows, cols);
             this.applyChargingStations(grid, rows, cols);
             this.applyDocks(grid, rows, cols);
+            this.applyNavMesh(grid, rows, cols);
 
             // ── 2. Create Warehouse with layout_data ────────────
             const warehouseResult = await this.warehouseRepo.rawQueryWithClient<IWarehouse>(client,
@@ -236,24 +303,7 @@ export class MasterDataService {
             }
 
             // ── 5. Spawn Initial AGVs ───────────────────────────
-            if (data.initial_agv_count && data.initial_agv_count > 0) {
-                const chargingSlots = functionalSlots.filter(s => s.slot_type === SlotType.CHARGING);
-                const agvToCreate = Math.min(data.initial_agv_count, chargingSlots.length);
-                
-                for (let i = 0; i < agvToCreate; i++) {
-                    const slot = chargingSlots[i];
-                    await this.agvRepo.createAGVWithClient(client, {
-                        code: `AGV-${warehouse.code}-${(i + 1).toString().padStart(3, '0')}`,
-                        warehouse_id: warehouse.id,
-                        model: 'STANDARD-X1',
-                        max_weight: 500,
-                        battery_capacity: 100,
-                        current_x: slot.x,
-                        current_y: slot.y
-                    });
-                }
-                console.log(`🤖 Spawned ${agvToCreate} AGVs for warehouse ${warehouse.code}`);
-            }
+            // Không tạo AGV trực tiếp ở đây nữa. Ta sẽ bắn Event sau khi commit xong!
 
             // ── 6. Cache to Redis (chỉ layout + code, KHÔNG sync slot ở đây) ──
             if (cacheManager) {
@@ -270,15 +320,27 @@ export class MasterDataService {
         // (Phải nằm ngoài runInTransaction để findByWarehouseId thấy data đã commit)
         await this.syncSlotsToRedis(result.id);
 
+        // 8. Bắn event để AGV Module tự tạo xe
+        if (data.initial_agv_count && data.initial_agv_count > 0) {
+            const chargingSlots = await this.warehouseSlotRepo.findWhere({ 
+                warehouse_id: result.id, 
+                slot_type: SlotType.CHARGING 
+            });
+            import('@core/shared/src/in-memory-event-bus').then(({ eventBus }) => {
+                eventBus.publish('WAREHOUSE_CREATED', {
+                    warehouseId: result.id,
+                    warehouseCode: result.code,
+                    initialAgvCount: data.initial_agv_count,
+                    chargingSlots
+                });
+            });
+        }
+
         return result;
     }
 
     async updateWarehouse(id: string, data: UpdateWarehouseDTO): Promise<IWarehouse> {
         return this.warehouseRepo.updateWarehouse(id, data);
-    }
-
-    async getAGVsByWarehouse(warehouseId: string): Promise<IAGV[]> {
-        return this.agvRepo.findByWarehouse(warehouseId);
     }
 
     async deleteWarehouse(id: string): Promise<boolean> {
@@ -334,6 +396,10 @@ export class MasterDataService {
 
     async getProductById(id: string): Promise<IProduct> {
         return this.productRepo.findByIdOrThrow(id) as unknown as Promise<IProduct>;
+    }
+
+    async getProductByCode(code: string): Promise<IProduct | null> {
+        return this.productRepo.findByCode(code);
     }
 
     async createProduct(data: CreateProductDTO): Promise<IProduct> {

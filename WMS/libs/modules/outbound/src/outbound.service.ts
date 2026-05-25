@@ -2,29 +2,24 @@ import { OutboundOrderStatus } from './outbound.model';
 import type { CreateOutboundOrderDTO, IOutboundOrder } from './outbound.model';
 import type { OutboundOrderRepository, OutboundOrderItemRepository } from './repositories/outbound.repository';
 import type { InventoryRepository } from './repositories/inventory.repository';
-import type { ProductRepository } from '../../master-data/src/repositories/product.repository';
 
 export class OutboundService {
     private outboundOrderRepo: OutboundOrderRepository;
     private outboundOrderItemRepo: OutboundOrderItemRepository;
     private inventoryRepo: InventoryRepository;
-    private productRepo: ProductRepository;
 
     constructor({
         outboundOrderRepository,
         outboundOrderItemRepository,
         inventoryRepository,
-        productRepository,
     }: {
         outboundOrderRepository: OutboundOrderRepository;
         outboundOrderItemRepository: OutboundOrderItemRepository;
         inventoryRepository: InventoryRepository;
-        productRepository: ProductRepository;
     }) {
         this.outboundOrderRepo = outboundOrderRepository;
         this.outboundOrderItemRepo = outboundOrderItemRepository;
         this.inventoryRepo = inventoryRepository;
-        this.productRepo = productRepository;
     }
 
     /**

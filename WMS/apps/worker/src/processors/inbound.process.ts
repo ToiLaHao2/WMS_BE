@@ -1,6 +1,7 @@
 import { Job } from 'bullmq';
 import { container } from '@core/container';
 import { InboundOrderStatus } from '../../../../libs/modules/inbound/src/inbound.model';
+import { eventBus } from '../../../../libs/core/shared/src/in-memory-event-bus';
 import fetch from 'node-fetch';
 
 export default async function processInboundOrder(job: Job) {
@@ -8,11 +9,9 @@ export default async function processInboundOrder(job: Job) {
     console.log(`[WORKER] Bắt đầu xử lý Inbound Order: ${orderId}`);
 
     // Resolve dependencies from Awilix container
-    const productRepo = container.resolve('productRepository');
     const inboundOrderItemRepo = container.resolve('inboundOrderItemRepository');
     const inboundOrderRepo = container.resolve('inboundOrderRepository');
-    const warehouseSlotRepo = container.resolve('warehouseSlotRepository');
-    const agvRepo = container.resolve('agvRepository');
+    const masterDataService = container.resolve('masterDataService');
     const mesGrpcClient = container.resolve('mesGrpcClient');
     const cacheManager = container.resolve('cache');
 
@@ -21,7 +20,7 @@ export default async function processInboundOrder(job: Job) {
 
     // Helper functions (duplicated from InboundService for simplicity in worker, or we could resolve inboundService and expose methods)
     const syncSlotsToRedis = async (warehouseId: string) => {
-        const slots = await warehouseSlotRepo.findByWarehouseId(warehouseId);
+        const slots = await masterDataService.getSlotsByWarehouseId(warehouseId);
         const mappedSlots = slots.map((s: any) => ({
             slot_id: s.id,
             warehouse_id: s.warehouse_id,
@@ -40,7 +39,7 @@ export default async function processInboundOrder(job: Job) {
     };
 
     const getPickupAndAGVPosition = async (warehouseId: string) => {
-        const allSlots = await warehouseSlotRepo.findByWarehouseId(warehouseId);
+        const allSlots = await masterDataService.getSlotsByWarehouseId(warehouseId);
         const pickupSlot = allSlots.find((s: any) => s.slot_type === 'PICKUP');
         const agvSlot = allSlots.find((s: any) => s.slot_type === 'CHARGING_DOCK');
         return {
@@ -50,25 +49,12 @@ export default async function processInboundOrder(job: Job) {
     };
 
     const getAvailableAgv = async (warehouseId: string) => {
-        const agvs = await agvRepo.findByWarehouse(warehouseId);
-        for (const agv of agvs) {
-            const cachedStatus = await cacheManager.get(`agv_status:${agv.id}`);
-            const status = cachedStatus || agv.status;
-            if (status === 'IDLE' || status === 'CHARGING') return agv;
-        }
+        // Obsolete
         return null;
     };
 
     const sendPlanToGo = async (orderId: string, agvId: string, waypoints: any[]) => {
-        const agvGrpcClient = container.resolve('agvGrpcClient');
-        const wmsCallbackUrl = process.env.WMS_CALLBACK_URL || 'http://localhost:3000';
-        
-        await agvGrpcClient.executePlan(
-            agvId,
-            orderId,
-            wmsCallbackUrl,
-            waypoints
-        );
+        // Obsolete
     };
 
     // Process items
@@ -76,9 +62,9 @@ export default async function processInboundOrder(job: Job) {
         let product = null;
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (uuidRegex.test(item.product_id)) {
-            product = await productRepo.findById(item.product_id);
+            product = await masterDataService.getProductById(item.product_id);
         } else {
-            product = await productRepo.findByCode(item.product_id);
+            product = await masterDataService.getProductByCode(item.product_id);
         }
         
         if (!product) {
@@ -89,28 +75,13 @@ export default async function processInboundOrder(job: Job) {
         const productId = (product as any).id;
 
         try {
-            // === BƯỚC A: Xin cấp Slot từ MES (Kèm retry chống lock tồn dư từ lần crash trước) ===
-            let slotResult: any;
-            let retries = 5;
-            
-            while (retries > 0) {
-                slotResult = await mesGrpcClient.allocateSlot(
-                    dto.warehouse_id,
-                    item.product_id,
-                    Number(product.width),
-                    Number(product.height)
-                );
-
-                if (slotResult.success && slotResult.slot_id) break;
-                
-                if (slotResult.error_code === 'RACE_CONDITION_RETRY') {
-                    console.log(`[WORKER] Bị dính lock (có thể do lỗi tồn dư), thử lại sau 1s... (Còn ${retries - 1} lần thử)`);
-                    await new Promise(res => setTimeout(res, 1000));
-                    retries--;
-                } else {
-                    break;
-                }
-            }
+            // === BƯỚC A: Xin cấp Slot từ MES ===
+            const slotResult = await mesGrpcClient.allocateSlot(
+                dto.warehouse_id,
+                item.product_id,
+                Number(product.width),
+                Number(product.height)
+            );
 
             if (!slotResult.success || !slotResult.slot_id) {
                 console.warn(`[WORKER] Không cấp được slot: ${slotResult.message}`);
@@ -121,9 +92,6 @@ export default async function processInboundOrder(job: Job) {
                     quantity: item.quantity,
                 });
                 allAllocated = false;
-                
-                // Ném lỗi để BullMQ retry job (hoặc bạn có thể cho fail luôn)
-                // throw new Error(`Không đủ slot cho item ${item.product_id}`);
                 continue; 
             }
 
@@ -137,7 +105,7 @@ export default async function processInboundOrder(job: Job) {
                 quantity: item.quantity,
             });
 
-            await warehouseSlotRepo.updateSlot(slotResult.slot_id, {
+            await masterDataService.updateSlot(slotResult.slot_id, {
                 status: 'RESERVED',
             });
 
@@ -145,71 +113,40 @@ export default async function processInboundOrder(job: Job) {
             await syncSlotsToRedis(dto.warehouse_id);
 
             // === BƯỚC B: Lấy tọa độ Slot để gửi cho MES (Dispatch) ===
-            const slot = await warehouseSlotRepo.findById(slotResult.slot_id);
+            const slot = await masterDataService.getSlotById(slotResult.slot_id);
             const slotPosition = slot
                 ? { x: Math.round(Number((slot as any).x)), y: Math.round(Number((slot as any).y)) }
                 : { x: 0, y: 0 };
 
-            // === BƯỚC C: Lấy AGV rảnh từ Redis ===
-            let idleAgv = null;
-            let waitAgvRetries = 10;
-            while (waitAgvRetries > 0) {
-                idleAgv = await getAvailableAgv(dto.warehouse_id);
-                if (idleAgv) break;
-                console.log(`[WORKER] Chưa có AGV rảnh. Đợi 2s...`);
-                await new Promise(r => setTimeout(r, 2000));
-                waitAgvRetries--;
-            }
-
-            if (!idleAgv) {
-                console.warn(`[WORKER] Không có xe AGV nào rảnh rỗi sau khi chờ. Worker sẽ Fail Job này để thử lại sau.`);
-                throw new Error("Timeout waiting for AGV");
-            }
-            
-            const targetAgvId = idleAgv.id;
-            
-            // Lấy tọa độ AGV thực tế
-            const agvPosition = { x: Math.round(Number(idleAgv.current_x || 1)), y: Math.round(Number(idleAgv.current_y || 1)) };
-
-            // === BƯỚC D: Lấy tọa độ thực tế của Pickup từ DB ===
+            // === BƯỚC C: Lấy tọa độ thực tế của Pickup từ DB ===
             const { pickupPoint: defaultPickup } = await getPickupAndAGVPosition(dto.warehouse_id);
             const pickupPoint = (item.pickup_x !== undefined && item.pickup_y !== undefined) 
                 ? { x: item.pickup_x, y: item.pickup_y } 
                 : defaultPickup;
 
-            console.log(`[WORKER] Pickup: (${pickupPoint.x},${pickupPoint.y}) | AGV: (${agvPosition.x},${agvPosition.y}) | Slot: (${slotPosition.x},${slotPosition.y})`);
+            console.log(`[WORKER] Order ${orderId} - Pickup: (${pickupPoint.x},${pickupPoint.y}) | Slot: (${slotPosition.x},${slotPosition.y})`);
 
             allocatedSlots.push({ slot_id: slotResult.slot_id, x: slotPosition.x, y: slotPosition.y });
 
-            // === BƯỚC D: Gọi MES xin Execution Plan ===
-            console.log(`[WORKER] Xin Execution Plan từ MES...`);
-            const dispatchResult = await mesGrpcClient.dispatchAGV({
-                warehouseId: dto.warehouse_id,
-                inboundOrderId: orderId,
-                agvPosition,
-                pickupPoint,
-                slotPosition,
-            });
-
-            if (!dispatchResult.success) {
-                console.warn(`[WORKER] MES không tạo được Execution Plan: ${dispatchResult.message}`);
-                continue;
+            // === BƯỚC D: Đẩy Nhiệm vụ vào Redis Queue ===
+            const redisClient = cacheManager.getRedisClient();
+            if (redisClient) {
+                const taskPayload = {
+                    orderId,
+                    warehouseId: dto.warehouse_id,
+                    slotId: slotResult.slot_id,
+                    pickupPoint,
+                    slotPosition
+                };
+                await redisClient.rpush(`pending_tasks:${dto.warehouse_id}`, JSON.stringify(taskPayload));
+                console.log(`[WORKER] Đã thêm Task vào hàng đợi Redis (pending_tasks:${dto.warehouse_id})`);
             }
-
-            console.log(`[WORKER] Execution Plan: ${dispatchResult.waypoints.length} buoc. Gui sang Go...`);
-
-            // === KHOÁ AGV NGAY LẬP TỨC TRÊN REDIS (BUSY) ===
-            await cacheManager.set(`agv_status:${targetAgvId}`, 'BUSY', 86400);
-            await agvRepo.updateStatus(targetAgvId, 'BUSY');
-
-            // === BƯỚC E: Gửi Execution Plan sang Go AGV Control ===
-            await sendPlanToGo(orderId, targetAgvId, dispatchResult.waypoints);
             
             // Bắn WebSocket (thông qua Redis PubSub) để Frontend đổi màu kệ hàng
             const { Emitter } = require('@socket.io/redis-emitter');
-            const redisClient = cacheManager.getRedisClient();
-            if (redisClient) {
-                const io = new Emitter(redisClient);
+            const redisPubSub = cacheManager.getRedisClient();
+            if (redisPubSub) {
+                const io = new Emitter(redisPubSub);
                 io.emit('slot_allocated', {
                     order_id: orderId,
                     slots: [{ slot_id: slotResult.slot_id, x: slotPosition.x, y: slotPosition.y }]
@@ -219,7 +156,6 @@ export default async function processInboundOrder(job: Job) {
 
         } catch (error: any) {
             console.error(`[WORKER] Lỗi xử lý item: ${error.message}`);
-            // Nếu lỗi do thiếu AGV hoặc đứt kết nối, ta throw error để BullMQ tự retry Job
             throw error;
         }
     }
@@ -228,6 +164,9 @@ export default async function processInboundOrder(job: Job) {
     const finalStatus = allAllocated ? InboundOrderStatus.ALLOCATED : InboundOrderStatus.FAILED;
     await inboundOrderRepo.updateOrderStatus(orderId, finalStatus);
     
+    // 4. Kích hoạt Dispatcher qua Event Bus
+    eventBus.publish('NEW_AGV_TASK_ADDED', { warehouseId: dto.warehouse_id });
+
     console.log(`[WORKER] Đã hoàn thành Inbound Order: ${orderId}`);
     return { success: true, allocated_slots: allocatedSlots };
 }
