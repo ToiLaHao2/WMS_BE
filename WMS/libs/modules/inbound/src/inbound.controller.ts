@@ -37,11 +37,4 @@ export class InboundController extends Controller {
         return this.inboundService.getOrderById(id);
     }
 
-    /**
-     * Webhook/Callback nhận tín hiệu hoàn thành từ Go AGV Service.
-     */
-    @Post('agv-complete')
-    public async completeInboundTask(@Body() body: { agv_id: string, inbound_order_id: string, status?: string }): Promise<any> {
-        return this.inboundService.completeInboundTask(body.inbound_order_id, body.agv_id);
-    }
 }

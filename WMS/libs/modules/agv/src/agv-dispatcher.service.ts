@@ -80,11 +80,11 @@ export class AgvDispatcherService {
             }
 
             // 5. Gửi lệnh sang Go AGV
-            const wmsCallbackUrl = process.env.WMS_CALLBACK_URL || 'http://127.0.0.1:3000';
+            const wmsGrpcUrl = process.env.WMS_GRPC_URL || 'erp-backend:50053';
             await this.agvGrpcClient.executePlan(
                 targetAgvId,
                 orderId,
-                wmsCallbackUrl,
+                wmsGrpcUrl,
                 dispatchResult.waypoints
             );
 
