@@ -15,10 +15,15 @@ const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
 
 const wmsProto = (grpc.loadPackageDefinition(packageDefinition) as any).wms;
 
-export function startWmsGrpcServer(port: number = 50053) {
-    const server = new grpc.Server();
+let wmsServerInstance: grpc.Server;
 
-    server.addService(wmsProto.WMSService.service, {
+export function startWmsGrpcServer(port: number = 50053) {
+    console.log('[gRPC Server] Khởi tạo WMS gRPC Server...');
+    console.log('[gRPC Server] Các keys trong packageDefinition:', Object.keys(packageDefinition));
+    console.log('[gRPC Server] Các keys trong wmsProto.WMSService:', wmsProto && wmsProto.WMSService ? Object.keys(wmsProto.WMSService) : 'undefined');
+    wmsServerInstance = new grpc.Server();
+
+    wmsServerInstance.addService(wmsProto.WMSService.service, {
         ReportAGVTaskCompleted: async (call: any, callback: any) => {
             const req = call.request;
             console.log(`[gRPC Server] Nhận callback hoàn thành AGV task từ xe: ${req.agv_id}`);
@@ -38,11 +43,12 @@ export function startWmsGrpcServer(port: number = 50053) {
         },
     });
 
-    server.bindAsync(`0.0.0.0:${port}`, grpc.ServerCredentials.createInsecure(), (err, boundPort) => {
+    wmsServerInstance.bindAsync(`0.0.0.0:${port}`, grpc.ServerCredentials.createInsecure(), (err, boundPort) => {
         if (err) {
             console.error('[gRPC Server] Không thể khởi động gRPC server:', err);
             return;
         }
+        wmsServerInstance.start();
         console.log(`🚀 [gRPC Server] WMS gRPC Server đang chạy tại port ${boundPort}`);
     });
 }
