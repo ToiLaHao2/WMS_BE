@@ -11,11 +11,26 @@ console.log('\n--- 🔌 SOCKET SERVICE STARTING ---');
 
 export function startSocketServer(adapter: ReturnType<typeof createAdapter> | null, httpServer?: any): void {
     const ioOptions = {
-        cors: { origin: '*', methods: ['GET', 'POST'] },
+        cors: {
+            origin: [
+                'http://localhost:5173',        // Frontend Vite dev
+                'https://wmss.hao-dev.cloud',   // Frontend production 
+            ],
+            methods: ['GET', 'POST'],
+            credentials: true,
+        },
         ...(adapter ? { adapter } : {})
     };
 
-    const io = httpServer ? new Server(httpServer, ioOptions) : new Server(PORT, ioOptions);
+    let io: Server;
+    if (httpServer) {
+        io = new Server(httpServer, ioOptions);
+    } else {
+        const http = require('http');
+        const customServer = http.createServer();
+        io = new Server(customServer, ioOptions);
+        customServer.listen(PORT, '0.0.0.0');
+    }
 
     // Authentication Middleware
     io.use((socket: Socket, next) => {
@@ -75,7 +90,7 @@ export function startSocketServer(adapter: ReturnType<typeof createAdapter> | nu
                 await consumer.subscribe({ topic: 'agv-telemetry', fromBeginning: false });
                 console.log('✅ [Kafka] Consumer connected & listening to agv-telemetry');
                 connected = true;
-                
+
                 await consumer.run({
                     eachMessage: async ({ topic, partition, message }) => {
                         if (message.value) {
@@ -96,7 +111,7 @@ export function startSocketServer(adapter: ReturnType<typeof createAdapter> | nu
             }
         }
     }
-    
+
     // Chạy ngầm Kafka Consumer
     startKafkaConsumer();
 

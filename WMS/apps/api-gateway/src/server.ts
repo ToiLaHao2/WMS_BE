@@ -6,7 +6,7 @@ import { startWmsGrpcServer } from './grpc-server';
 const PORT = appConfig.port;
 
 // === START SERVER (STANDALONE) ===
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Gateway is running at: http://localhost:${PORT}`);
     console.log(`📖 Swagger UI   at: http://localhost:${PORT}/docs`);
     
