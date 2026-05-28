@@ -37,4 +37,11 @@ export class InboundController extends Controller {
         return this.inboundService.getOrderById(id);
     }
 
+    /**
+     * Lấy danh sách hàng hóa đang chờ nhập ở bến của một kho
+     */
+    @Get('warehouses/{warehouseId}/pending')
+    public async getPendingPackages(@Path() warehouseId: string): Promise<any[]> {
+        return this.inboundService.getPendingPackages(warehouseId);
+    }
 }

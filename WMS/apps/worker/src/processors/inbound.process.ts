@@ -142,17 +142,23 @@ export default async function processInboundOrder(job: Job) {
                 console.log(`[WORKER] Đã thêm Task vào hàng đợi Redis (pending_tasks:${dto.warehouse_id})`);
             }
             
-            // Bắn WebSocket (thông qua Redis PubSub) để Frontend đổi màu kệ hàng
-            const { Emitter } = require('@socket.io/redis-emitter');
-            const redisPubSub = cacheManager.getRedisClient();
-            if (redisPubSub) {
-                const io = new Emitter(redisPubSub);
-                io.emit('slot_allocated', {
-                    order_id: orderId,
-                    slots: [{ slot_id: slotResult.slot_id, x: slotPosition.x, y: slotPosition.y }]
-                });
-                console.log(`[WORKER] Bắn event slot_allocated qua Redis Pub/Sub`);
-            }
+            // Bắn WebSocket (thông qua Redis PubSub) để Frontend cập nhật Package và đổi màu kệ hàng
+            const eventPublisher = container.resolve<any>('eventPublisher');
+            
+            // Broadcast cho tất cả user biết có hàng mới ở bến
+            eventPublisher.broadcast('inbound_created', {
+                id: `PKG-${orderId}`,
+                x: pickupPoint.x,
+                y: pickupPoint.y,
+                code: item.product_id
+            });
+
+            // Broadcast slot_allocated
+            eventPublisher.broadcast('slot_allocated', {
+                order_id: orderId,
+                slots: [{ slot_id: slotResult.slot_id, x: slotPosition.x, y: slotPosition.y }]
+            });
+            console.log(`[WORKER] Bắn event inbound_created & slot_allocated qua Redis Pub/Sub`);
 
         } catch (error: any) {
             console.error(`[WORKER] Lỗi xử lý item: ${error.message}`);

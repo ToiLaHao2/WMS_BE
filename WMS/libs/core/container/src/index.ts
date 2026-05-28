@@ -6,6 +6,7 @@ import { cacheManager } from '@core/cache';
 import { cloudinaryAdapter, r2Adapter, IStorageProvider } from '@core/storage';
 import { logger } from '@core/logger';
 import { eventBus } from '@core/shared';
+import { SocketIoRedisPublisher, IEventPublisher } from '@core/events';
 import { MesGrpcClient } from '@core/contracts/mes-grpc.client';
 import { AgvGrpcClient } from '@core/contracts/agv-grpc.client';
 import { Queue } from 'bullmq';
@@ -57,6 +58,7 @@ export interface ICradle {
     storage: IStorageProvider;
     logger: typeof logger;
     eventBus: typeof eventBus;
+    eventPublisher: IEventPublisher;
     mesGrpcClient: MesGrpcClient;
     agvGrpcClient: AgvGrpcClient;
     systemQueue: Queue;
@@ -88,6 +90,7 @@ container.register({
     storage: asValue(storageProvider),
     logger: asValue(logger),
     eventBus: asValue(eventBus),
+    eventPublisher: asValue(new SocketIoRedisPublisher({ cache: cacheManager })),
     mesGrpcClient: asValue(new MesGrpcClient()),
     agvGrpcClient: asValue(new AgvGrpcClient()),
     // Queue setup

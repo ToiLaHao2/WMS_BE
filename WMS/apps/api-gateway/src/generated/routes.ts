@@ -8,6 +8,8 @@ import { OutboundController } from './../../../../libs/modules/outbound/src/outb
 // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 import { MasterDataController } from './../../../../libs/modules/master-data/src/master-data.controller';
 // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+import { InventoryController } from './../../../../libs/modules/inventory/src/inventory.controller';
+// WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 import { InboundController } from './../../../../libs/modules/inbound/src/inbound.controller';
 // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 import { AgvController } from './../../../../libs/modules/agv/src/agv.controller';
@@ -198,6 +200,30 @@ const models: TsoaRoute.Models = {
             "width": {"dataType":"double"},
             "height": {"dataType":"double"},
             "weight": {"dataType":"double"},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "IInventory": {
+        "dataType": "refObject",
+        "properties": {
+            "id": {"dataType":"string","required":true},
+            "warehouse_id": {"dataType":"string","required":true},
+            "slot_id": {"dataType":"string","required":true},
+            "product_id": {"dataType":"string","required":true},
+            "quantity": {"dataType":"double","required":true},
+            "reserved_quantity": {"dataType":"double","required":true},
+            "created_at": {"dataType":"datetime","required":true},
+            "updated_at": {"dataType":"datetime","required":true},
+        },
+        "additionalProperties": false,
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "InventoryStats": {
+        "dataType": "refObject",
+        "properties": {
+            "totalCapacity": {"dataType":"double","required":true},
+            "usedCapacity": {"dataType":"double","required":true},
         },
         "additionalProperties": false,
     },
@@ -969,6 +995,76 @@ export function RegisterRoutes(app: Router) {
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsInventoryController_getInventoryByWarehouse: Record<string, TsoaRoute.ParameterSchema> = {
+                warehouseId: {"in":"path","name":"warehouseId","required":true,"dataType":"string"},
+        };
+        app.get('/inventory/warehouses/:warehouseId',
+            ...(fetchMiddlewares<RequestHandler>(InventoryController)),
+            ...(fetchMiddlewares<RequestHandler>(InventoryController.prototype.getInventoryByWarehouse)),
+
+            async function InventoryController_getInventoryByWarehouse(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsInventoryController_getInventoryByWarehouse, request, response });
+
+                const container: IocContainer = typeof iocContainer === 'function' ? (iocContainer as IocContainerFactory)(request) : iocContainer;
+
+                const controller: any = await container.get<InventoryController>(InventoryController);
+                if (typeof controller['setStatus'] === 'function') {
+                controller.setStatus(undefined);
+                }
+
+              await templateService.apiHandler({
+                methodName: 'getInventoryByWarehouse',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+        const argsInventoryController_getInventoryStats: Record<string, TsoaRoute.ParameterSchema> = {
+                warehouseId: {"in":"path","name":"warehouseId","required":true,"dataType":"string"},
+        };
+        app.get('/inventory/warehouses/:warehouseId/stats',
+            ...(fetchMiddlewares<RequestHandler>(InventoryController)),
+            ...(fetchMiddlewares<RequestHandler>(InventoryController.prototype.getInventoryStats)),
+
+            async function InventoryController_getInventoryStats(request: ExRequest, response: ExResponse, next: any) {
+
+            // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+
+            let validatedArgs: any[] = [];
+            try {
+                validatedArgs = templateService.getValidatedArgs({ args: argsInventoryController_getInventoryStats, request, response });
+
+                const container: IocContainer = typeof iocContainer === 'function' ? (iocContainer as IocContainerFactory)(request) : iocContainer;
+
+                const controller: any = await container.get<InventoryController>(InventoryController);
+                if (typeof controller['setStatus'] === 'function') {
+                controller.setStatus(undefined);
+                }
+
+              await templateService.apiHandler({
+                methodName: 'getInventoryStats',
+                controller,
+                response,
+                next,
+                validatedArgs,
+                successStatus: undefined,
+              });
+            } catch (err) {
+                return next(err);
+            }
+        });
+        // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsInboundController_createInboundOrder: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"ref":"CreateInboundOrderDTO"},
         };
@@ -1073,20 +1169,20 @@ export function RegisterRoutes(app: Router) {
             }
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-        const argsInboundController_completeInboundTask: Record<string, TsoaRoute.ParameterSchema> = {
-                body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"status":{"dataType":"string"},"inbound_order_id":{"dataType":"string","required":true},"agv_id":{"dataType":"string","required":true}}},
+        const argsInboundController_getPendingPackages: Record<string, TsoaRoute.ParameterSchema> = {
+                warehouseId: {"in":"path","name":"warehouseId","required":true,"dataType":"string"},
         };
-        app.post('/inbound/agv-complete',
+        app.get('/inbound/warehouses/:warehouseId/pending',
             ...(fetchMiddlewares<RequestHandler>(InboundController)),
-            ...(fetchMiddlewares<RequestHandler>(InboundController.prototype.completeInboundTask)),
+            ...(fetchMiddlewares<RequestHandler>(InboundController.prototype.getPendingPackages)),
 
-            async function InboundController_completeInboundTask(request: ExRequest, response: ExResponse, next: any) {
+            async function InboundController_getPendingPackages(request: ExRequest, response: ExResponse, next: any) {
 
             // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
 
             let validatedArgs: any[] = [];
             try {
-                validatedArgs = templateService.getValidatedArgs({ args: argsInboundController_completeInboundTask, request, response });
+                validatedArgs = templateService.getValidatedArgs({ args: argsInboundController_getPendingPackages, request, response });
 
                 const container: IocContainer = typeof iocContainer === 'function' ? (iocContainer as IocContainerFactory)(request) : iocContainer;
 
@@ -1096,7 +1192,7 @@ export function RegisterRoutes(app: Router) {
                 }
 
               await templateService.apiHandler({
-                methodName: 'completeInboundTask',
+                methodName: 'getPendingPackages',
                 controller,
                 response,
                 next,

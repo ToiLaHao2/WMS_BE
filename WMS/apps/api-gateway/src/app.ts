@@ -20,6 +20,7 @@ const PORT = appConfig.port;
 const API_PREFIX = '/api';
 
 // === MIDDLEWARES ===
+app.set('trust proxy', 1); // Trust Cloudflare Tunnel's X-Forwarded-For headers
 app.use(helmet());
 app.use(cors({
     origin: [

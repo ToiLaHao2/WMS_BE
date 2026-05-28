@@ -98,6 +98,18 @@ export class InboundService {
                     slotIds
                 });
             }
+
+            // Phóng Event cho từng Item để Inventory cập nhật
+            items.forEach((item: any) => {
+                if (item.assigned_slot_id) {
+                    eventBus.publish('INBOUND_ORDER_ITEM_COMPLETED', {
+                        warehouseId: (order as any).warehouse_id,
+                        slotId: item.assigned_slot_id,
+                        productId: item.product_id,
+                        quantity: item.quantity
+                    });
+                }
+            });
         }
 
         // 4 & 5. Phát sự kiện AGV_TASK_COMPLETED để module AGV tự xử lý
@@ -109,6 +121,22 @@ export class InboundService {
         console.log(`[INBOUND] Đã phát sự kiện AGV_TASK_COMPLETED cho AGV ${agvId}.`);
 
         return { success: true, message: 'Inbound task completed successfully' };
+    }
+
+    async getPendingPackages(warehouseId: string): Promise<any[]> {
+        const redisClient = cacheManager.getRedisClient();
+        if (!redisClient) return [];
+
+        const pendingTasks = await redisClient.lrange(`pending_tasks:${warehouseId}`, 0, -1);
+        return pendingTasks.map((taskStr: string) => {
+            const task = JSON.parse(taskStr);
+            return {
+                id: `PKG-${task.orderId}`,
+                x: task.pickupPoint.x,
+                y: task.pickupPoint.y,
+                code: 'ITEM' // Hoặc có thể lấy từ DB dựa vào orderId
+            };
+        });
     }
 
 }

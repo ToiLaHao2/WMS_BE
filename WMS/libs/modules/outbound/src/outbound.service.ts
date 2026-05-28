@@ -1,7 +1,7 @@
 import { OutboundOrderStatus } from './outbound.model';
 import type { CreateOutboundOrderDTO, IOutboundOrder } from './outbound.model';
 import type { OutboundOrderRepository, OutboundOrderItemRepository } from './repositories/outbound.repository';
-import type { InventoryRepository } from './repositories/inventory.repository';
+import type { InventoryRepository } from '../../inventory/src/repositories/inventory.repository';
 
 export class OutboundService {
     private outboundOrderRepo: OutboundOrderRepository;

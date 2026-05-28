@@ -463,6 +463,68 @@
 				"type": "object",
 				"additionalProperties": false
 			},
+			"IInventory": {
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"warehouse_id": {
+						"type": "string"
+					},
+					"slot_id": {
+						"type": "string"
+					},
+					"product_id": {
+						"type": "string"
+					},
+					"quantity": {
+						"type": "number",
+						"format": "double"
+					},
+					"reserved_quantity": {
+						"type": "number",
+						"format": "double"
+					},
+					"created_at": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"updated_at": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"id",
+					"warehouse_id",
+					"slot_id",
+					"product_id",
+					"quantity",
+					"reserved_quantity",
+					"created_at",
+					"updated_at"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"InventoryStats": {
+				"properties": {
+					"totalCapacity": {
+						"type": "number",
+						"format": "double"
+					},
+					"usedCapacity": {
+						"type": "number",
+						"format": "double"
+					}
+				},
+				"required": [
+					"totalCapacity",
+					"usedCapacity"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
 			"InboundOrderItemDTO": {
 				"properties": {
 					"product_id": {
@@ -1291,6 +1353,73 @@
 				]
 			}
 		},
+		"/inventory/warehouses/{warehouseId}": {
+			"get": {
+				"operationId": "GetInventoryByWarehouse",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/IInventory"
+									},
+									"type": "array"
+								}
+							}
+						}
+					}
+				},
+				"description": "Lấy danh sách hàng hóa đang nằm trên các kệ trong kho.",
+				"tags": [
+					"Inventory"
+				],
+				"security": [],
+				"parameters": [
+					{
+						"in": "path",
+						"name": "warehouseId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/inventory/warehouses/{warehouseId}/stats": {
+			"get": {
+				"operationId": "GetInventoryStats",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/InventoryStats"
+								}
+							}
+						}
+					}
+				},
+				"description": "Lấy thông số tổng quan của kho (total capacity, used capacity).",
+				"tags": [
+					"Inventory"
+				],
+				"security": [],
+				"parameters": [
+					{
+						"in": "path",
+						"name": "warehouseId",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
 		"/inbound": {
 			"post": {
 				"operationId": "CreateInboundOrder",
@@ -1376,50 +1505,37 @@
 				]
 			}
 		},
-		"/inbound/agv-complete": {
-			"post": {
-				"operationId": "CompleteInboundTask",
+		"/inbound/warehouses/{warehouseId}/pending": {
+			"get": {
+				"operationId": "GetPendingPackages",
 				"responses": {
 					"200": {
 						"description": "Ok",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"items": {},
+									"type": "array"
+								}
 							}
 						}
 					}
 				},
-				"description": "Webhook/Callback nhận tín hiệu hoàn thành từ Go AGV Service.",
+				"description": "Lấy danh sách hàng hóa đang chờ nhập ở bến của một kho",
 				"tags": [
 					"Inbound"
 				],
 				"security": [],
-				"parameters": [],
-				"requestBody": {
-					"required": true,
-					"content": {
-						"application/json": {
-							"schema": {
-								"properties": {
-									"status": {
-										"type": "string"
-									},
-									"inbound_order_id": {
-										"type": "string"
-									},
-									"agv_id": {
-										"type": "string"
-									}
-								},
-								"required": [
-									"inbound_order_id",
-									"agv_id"
-								],
-								"type": "object"
-							}
+				"parameters": [
+					{
+						"in": "path",
+						"name": "warehouseId",
+						"required": true,
+						"schema": {
+							"type": "string"
 						}
 					}
-				}
+				]
 			}
 		},
 		"/agv/warehouses/{warehouseId}/agvs": {
