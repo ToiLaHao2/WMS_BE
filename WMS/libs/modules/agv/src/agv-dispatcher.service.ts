@@ -96,14 +96,31 @@ export class AgvDispatcherService {
 
         } catch (err: any) {
             console.error(`[DISPATCHER] Lỗi dispatch đơn ${orderId}: ${err.message}`);
-            // Đánh dấu Inbound Order thất bại
-            eventBus.publish('INBOUND_ORDER_FAILED', { orderId, reason: err.message });
+            
+            const retries = task.retryCount || 0;
+            if (retries < 3) {
+                // Tăng retryCount và đẩy lại vào cuối queue
+                task.retryCount = retries + 1;
+                await redisClient.rpush(`pending_tasks:${warehouseId}`, JSON.stringify(task));
+                console.warn(`[DISPATCHER] Tạm hoãn đơn ${orderId}, đẩy về cuối hàng đợi (Lần thử: ${task.retryCount}/3).`);
+            } else {
+                // Vượt quá retry, đánh dấu FAILED và GIẢI PHÓNG SLOT
+                console.error(`[DISPATCHER] Vượt quá số lần thử (3). Đánh dấu FAILED đơn ${orderId}.`);
+                eventBus.publish('INBOUND_ORDER_FAILED', { orderId, reason: err.message });
+                
+                try {
+                    await this.mesGrpcClient.freeSlot(warehouseId, task.slotId);
+                    console.log(`[DISPATCHER] Đã giải phóng slot ${task.slotId} cho đơn ${orderId} thành công.`);
+                } catch (freeErr: any) {
+                    console.error(`[DISPATCHER] Lỗi khi giải phóng slot ${task.slotId}: ${freeErr.message}`);
+                }
+            }
             
             // Nhả AGV về lại IDLE vì nó chưa kịp làm gì
             await cacheManager.set(`agv_status:${targetAgvId}`, 'IDLE', 86400);
             await this.agvRepo.updateStatus(targetAgvId, 'IDLE');
 
-            // AGV lại rảnh rỗi, có thể xử lý Task tiếp theo (task bị lỗi kia đã bị ném đi)
+            // Quét task tiếp theo (nếu có)
             await this.dispatchAgv(warehouseId);
         }
     }

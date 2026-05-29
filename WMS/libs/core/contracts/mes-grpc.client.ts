@@ -80,6 +80,22 @@ export class MesGrpcClient {
         });
     }
 
+    public freeSlot(
+        warehouseId: string,
+        slotId: string
+    ): Promise<{ success: boolean; message: string }> {
+        return new Promise((resolve, reject) => {
+            this.slotClient.FreeSlot(
+                { warehouse_id: warehouseId, slot_id: slotId },
+                { deadline: this.getDeadline() },
+                (error: any, response: any) => {
+                    if (error) return reject(error);
+                    resolve(response);
+                }
+            );
+        });
+    }
+
     /**
      * Gửi yêu cầu lập kế hoạch chạy (Execution Plan) cho AGV tới MES.
      * MES sẽ chạy A* và trả về chuỗi Waypoints đầy đủ.
