@@ -145,8 +145,8 @@ export default async function processInboundOrder(job: Job) {
             // Bắn WebSocket (thông qua Redis PubSub) để Frontend cập nhật Package và đổi màu kệ hàng
             const eventPublisher = container.resolve<any>('eventPublisher');
             
-            // Broadcast cho tất cả user biết có hàng mới ở bến
-            eventPublisher.broadcast('inbound_created', {
+            // Broadcast cho tất cả user đang ở trong kho này biết có hàng mới ở bến
+            eventPublisher.emitToWarehouse(dto.warehouse_id, 'inbound_created', {
                 id: `PKG-${orderId}`,
                 x: pickupPoint.x,
                 y: pickupPoint.y,
@@ -154,11 +154,11 @@ export default async function processInboundOrder(job: Job) {
             });
 
             // Broadcast slot_allocated
-            eventPublisher.broadcast('slot_allocated', {
+            eventPublisher.emitToWarehouse(dto.warehouse_id, 'slot_allocated', {
                 order_id: orderId,
                 slots: [{ slot_id: slotResult.slot_id, x: slotPosition.x, y: slotPosition.y }]
             });
-            console.log(`[WORKER] Bắn event inbound_created & slot_allocated qua Redis Pub/Sub`);
+            console.log(`[WORKER] Bắn event inbound_created & slot_allocated qua Redis Pub/Sub cho kho ${dto.warehouse_id}`);
 
         } catch (error: any) {
             console.error(`[WORKER] Lỗi xử lý item: ${error.message}`);

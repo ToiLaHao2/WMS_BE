@@ -41,6 +41,38 @@ export function startWmsGrpcServer(port: number = 50053) {
                 callback(null, { success: false, message: error.message });
             }
         },
+        RequestReplan: async (call: any, callback: any) => {
+            const req = call.request;
+            console.log(`[gRPC Server] Nhận yêu cầu Replan từ AGV: ${req.agv_id}`);
+
+            try {
+                // Get mesGrpcClient from Awilix container
+                const mesGrpcClient: any = container.resolve('mesGrpcClient');
+                
+                // Call replanAGV on MES
+                const replanResult = await mesGrpcClient.replanAGV({
+                    agvId: req.agv_id,
+                    warehouseId: req.warehouse_id,
+                    currentPosition: req.current_position,
+                    milestones: req.milestones
+                });
+
+                if (!replanResult.success) {
+                    callback(null, { success: false, message: replanResult.message, waypoints: [] });
+                    return;
+                }
+
+                // Trả về waypoints mới cho Go
+                callback(null, { 
+                    success: true, 
+                    message: 'Replan successful', 
+                    waypoints: replanResult.waypoints 
+                });
+            } catch (error: any) {
+                console.error(`[gRPC Server] Lỗi xử lý RequestReplan:`, error.message);
+                callback(null, { success: false, message: error.message, waypoints: [] });
+            }
+        },
     });
 
     wmsServerInstance.bindAsync(`0.0.0.0:${port}`, grpc.ServerCredentials.createInsecure(), (err, boundPort) => {

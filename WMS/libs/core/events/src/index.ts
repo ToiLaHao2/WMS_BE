@@ -11,6 +11,11 @@ export interface IEventPublisher {
      * Gửi event Broadcast cho tất cả user
      */
     broadcast(event: string, data: any): void;
+
+    /**
+     * Gửi event Real-time qua warehouse room dựa trên warehouseId
+     */
+    emitToWarehouse(warehouseId: string, event: string, data: any): void;
 }
 
 export class SocketIoRedisPublisher implements IEventPublisher {
@@ -34,6 +39,11 @@ export class SocketIoRedisPublisher implements IEventPublisher {
     broadcast(event: string, data: any): void {
         if (!this.emitter) return;
         this.emitter.emit(event, data);
+    }
+
+    emitToWarehouse(warehouseId: string, event: string, data: any): void {
+        if (!this.emitter) return;
+        this.emitter.to(`warehouse_${warehouseId}`).emit(event, data);
     }
 }
 

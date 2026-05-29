@@ -123,5 +123,25 @@ export class MesGrpcClient {
             });
         });
     }
+
+    public replanAGV(params: {
+        agvId: string;
+        warehouseId: string;
+        currentPosition: { x: number; y: number };
+        milestones: any[];
+    }): Promise<{ success: boolean; message: string; waypoints: any[] }> {
+        return new Promise((resolve, reject) => {
+            const request = {
+                agv_id: params.agvId,
+                warehouse_id: params.warehouseId,
+                current_position: params.currentPosition,
+                milestones: params.milestones,
+            };
+            this.dispatchClient.ReplanAGV(request, { deadline: this.getDeadline() }, (error: any, response: any) => {
+                if (error) return reject(error);
+                resolve(response);
+            });
+        });
+    }
 }
 

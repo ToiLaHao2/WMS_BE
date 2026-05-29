@@ -26,7 +26,7 @@ export const inventoryModule: IAppModule = {
                 
                 // Emit to Socket via core EventPublisher
                 const eventPublisher = container.resolve<any>('eventPublisher');
-                eventPublisher.broadcast('inventory_added', newItem);
+                eventPublisher.emitToWarehouse(warehouseId, 'inventory_added', newItem);
 
                 console.log(`[INVENTORY] Đã cập nhật tồn kho tại slot ${slotId} cho product ${productId}`);
             } catch (err: any) {
