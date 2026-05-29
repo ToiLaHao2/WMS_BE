@@ -54,7 +54,8 @@ export function startWmsGrpcServer(port: number = 50053) {
                     agvId: req.agv_id,
                     warehouseId: req.warehouse_id,
                     currentPosition: req.current_position,
-                    milestones: req.milestones
+                    milestones: req.milestones,
+                    obstacles: req.obstacles
                 });
 
                 if (!replanResult.success) {

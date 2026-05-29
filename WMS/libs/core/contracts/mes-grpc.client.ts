@@ -129,6 +129,7 @@ export class MesGrpcClient {
         warehouseId: string;
         currentPosition: { x: number; y: number };
         milestones: any[];
+        obstacles?: any[];
     }): Promise<{ success: boolean; message: string; waypoints: any[] }> {
         return new Promise((resolve, reject) => {
             const request = {
@@ -136,6 +137,7 @@ export class MesGrpcClient {
                 warehouse_id: params.warehouseId,
                 current_position: params.currentPosition,
                 milestones: params.milestones,
+                obstacles: params.obstacles || [],
             };
             this.dispatchClient.ReplanAGV(request, { deadline: this.getDeadline() }, (error: any, response: any) => {
                 if (error) return reject(error);
