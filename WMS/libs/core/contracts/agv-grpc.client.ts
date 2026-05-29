@@ -29,6 +29,7 @@ export class AgvGrpcClient {
         agvId: string,
         inboundOrderId: string,
         wmsGrpcUrl: string,
+        warehouseId: string,
         waypoints: any[]
     ): Promise<{ status: string; agv_id: string; steps: number }> {
         return new Promise((resolve, reject) => {
@@ -36,6 +37,7 @@ export class AgvGrpcClient {
                 agv_id: agvId,
                 inbound_order_id: inboundOrderId,
                 wms_grpc_url: wmsGrpcUrl,
+                warehouse_id: warehouseId,
                 waypoints: waypoints.map(wp => ({
                     position: { x: wp.position?.x ?? wp.x, y: wp.position?.y ?? wp.y },
                     action: typeof wp.action === 'number' ? this.mapAction(wp.action) : (wp.action || 'MOVE')

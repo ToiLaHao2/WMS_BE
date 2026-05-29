@@ -69,6 +69,19 @@ export function startSocketServer(adapter: ReturnType<typeof createAdapter> | nu
         socket.join(userRoom);
         console.log(`📍 Socket ${socket.id} joined room: ${userRoom}`);
 
+        // Cho phép Frontend chọn kho để nhận data (ngăn chặn loạn data giữa các kho)
+        socket.on('join_warehouse', (warehouseId: string) => {
+            // Rời các room kho cũ (nếu có) để tránh nhận data trùng lặp
+            Array.from(socket.rooms).forEach(room => {
+                if (room.startsWith('warehouse_')) {
+                    socket.leave(room);
+                }
+            });
+            const warehouseRoom = `warehouse_${warehouseId}`;
+            socket.join(warehouseRoom);
+            console.log(`📍 Socket ${socket.id} joined ${warehouseRoom}`);
+        });
+
         socket.on('disconnect', () => {
             console.log(`🔌 Client disconnected: ${socket.id} (User: ${userId})`);
         });
@@ -96,8 +109,13 @@ export function startSocketServer(adapter: ReturnType<typeof createAdapter> | nu
                         if (message.value) {
                             try {
                                 const data = JSON.parse(message.value.toString());
-                                // Broadcast tọa độ xe tới tất cả client Frontend
-                                io.emit('agv_moved', data);
+                                // Broadcast tọa độ xe tới client đang mở kho tương ứng
+                                if (data.warehouse_id) {
+                                    io.to(`warehouse_${data.warehouse_id}`).emit('agv_moved', data);
+                                } else {
+                                    // Fallback nếu thiếu warehouse_id (vd: data cũ)
+                                    io.emit('agv_moved', data);
+                                }
                             } catch (err) {
                                 console.error('Lỗi parse Kafka message:', err);
                             }

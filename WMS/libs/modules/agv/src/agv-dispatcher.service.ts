@@ -86,6 +86,7 @@ export class AgvDispatcherService {
                 targetAgvId,
                 orderId,
                 wmsGrpcUrl,
+                warehouseId,
                 dispatchResult.waypoints
             );
 
