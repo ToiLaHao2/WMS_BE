@@ -73,6 +73,7 @@ export class AgvDispatcherService {
                 agvPosition,
                 pickupPoint,
                 slotPosition,
+                agvId: targetAgvId,
             });
 
             if (!dispatchResult.success) {

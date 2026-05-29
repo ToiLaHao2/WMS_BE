@@ -90,6 +90,7 @@ export class MesGrpcClient {
         agvPosition: { x: number; y: number };
         pickupPoint: { x: number; y: number };
         slotPosition: { x: number; y: number };
+        agvId: string;
     }): Promise<{ success: boolean; message: string; waypoints: any[] }> {
         return new Promise((resolve, reject) => {
             const request = {
@@ -98,6 +99,7 @@ export class MesGrpcClient {
                 agv_position: params.agvPosition,
                 pickup_point: params.pickupPoint,
                 slot_position: params.slotPosition,
+                agv_id: params.agvId,
             };
             this.dispatchClient.DispatchAGV(request, { deadline: this.getDeadline() }, (error: any, response: any) => {
                 if (error) return reject(error);
